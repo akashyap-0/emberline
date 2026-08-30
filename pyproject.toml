@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emberline"
+version = "0.1.0"
+description = "Emberline: simulated wildfire early-warning stack (worldgen, fire physics, neural surrogate, sensors, mesh, foresight, demo)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "scipy",
+    "torch",
+    "networkx",
+    "matplotlib",
+    "imageio",
+    "pyyaml",
+    "pytest",
+    "scikit-learn",
+]
+
+[tool.setuptools.packages.find]
+include = ["emberline*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

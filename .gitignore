@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+.pytest_cache/
+outbox/
+demo/out/
+
+# Bulk generated data stays out; the small trained artifacts that make a
+# fresh clone runnable (surrogate + detector checkpoints) are committed.
+data/*
+!data/checkpoints
+data/checkpoints/*
+!data/checkpoints/best.pt
+!data/checkpoints/detect_cnn.pt
+!data/checkpoints/detect_gbm.joblib

@@ -1,0 +1,12 @@
+# HAND-AUTHORED illustrative hindcast scenario (NOT a real fire record).
+name: valley_night
+description: Slow low-ground night fire in light wind; nobody awake to call it
+  in for a long time.
+world_id: 0
+ignition_cell: [185, 40]
+start_hour_local: 2.0
+report_911_min: 55.0
+wind:
+  speed_ms: 4.0
+  dir_deg: 200.0
+max_minutes: 70

@@ -1,0 +1,65 @@
+{
+  "_generated_utc": "2026-08-30T15:50:50+00:00",
+  "ambient_day": {
+    "confounder_events": 14,
+    "fp_per_node_day_cnn": 7.333333333333333,
+    "fp_per_node_day_gbm": 8.666666666666666,
+    "windows_evaluated": 34548
+  },
+  "cnn": {
+    "f1": 0.943432406519655,
+    "precision": 0.9335863377609108,
+    "recall": 0.9534883720930233
+  },
+  "gbm": {
+    "f1": 0.9524733268671193,
+    "precision": 0.9533980582524272,
+    "recall": 0.9515503875968992
+  },
+  "latency": {
+    "latency_mean_s": 86.22727272727273,
+    "latency_median_s": 36.0,
+    "n_events": 25,
+    "undetected": 3
+  },
+  "per_confounder": {
+    "aerosol": {
+      "fp_rate_cnn": 0.0,
+      "fp_rate_gbm": 0.1111111111111111,
+      "windows": 9
+    },
+    "ambient": {
+      "fp_rate_cnn": 0.0,
+      "fp_rate_gbm": 0.0,
+      "windows": 540
+    },
+    "bbq": {
+      "fp_rate_cnn": 0.125,
+      "fp_rate_gbm": 0.08333333333333333,
+      "windows": 96
+    },
+    "dust": {
+      "fp_rate_cnn": 0.0,
+      "fp_rate_gbm": 0.0,
+      "windows": 136
+    },
+    "fog": {
+      "fp_rate_cnn": 0.0,
+      "fp_rate_gbm": 0.0,
+      "windows": 192
+    },
+    "vehicle": {
+      "fp_rate_cnn": 0.10714285714285714,
+      "fp_rate_gbm": 0.10714285714285714,
+      "windows": 28
+    },
+    "wood_stove": {
+      "fp_rate_cnn": 0.3125,
+      "fp_rate_gbm": 0.1875,
+      "windows": 64
+    }
+  },
+  "threshold_cnn": 0.6000000000000001,
+  "threshold_gbm": 0.5,
+  "val_windows": 1581
+}
