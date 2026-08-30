@@ -1,0 +1,156 @@
+# Emberline global configuration.
+# Single source of truth for grid sizes, dataset sizes, training steps, mesh parameters.
+# All randomness in the project derives from `seed`.
+
+seed: 1337
+
+world:
+  grid_size: 256          # cells per side
+  cell_m: 10.0            # metres per cell (256 * 10 m = 2.56 km side)
+  elevation:
+    relief_m: 350.0       # peak-to-valley elevation range
+    beta: 3.2             # spectral slope of 1/f^beta fractal terrain (higher = smoother)
+  fuel:
+    # Target area fractions (before town/water carving). Validated by tests with tolerance.
+    grass: 0.35
+    brush: 0.30
+    timber: 0.25
+    water_level_quantile: 0.06   # lowest-elevation quantile flooded as water
+    cluster_beta: 2.4            # spectral slope of the fuel-type noise (clustering scale)
+  town:
+    district_cells: 72     # side of the square town district (72 cells = 720 m)
+    street_spacing: 6      # cells between parallel streets
+    n_buildings_min: 150
+    n_buildings_max: 400
+    n_exits: 3             # exit roads from town district to map edge (2-4)
+  wind:
+    base_speed_ms: 8.0     # mean wind speed (m/s)
+    base_dir_deg: 225.0    # meteorological "from" ignored; this is the TO direction, deg CCW from +x (east)
+    gust_sigma: 1.5        # OU-process std-dev of speed gusts (m/s)
+    dir_sigma_deg: 12.0    # OU-process std-dev of direction wander (deg)
+    ou_tau_s: 300.0        # OU relaxation time (s)
+    regime_shifts: []      # list of {t_min: float, dir_deg: float, speed_ms: float}
+
+firesim:
+  dt_s: 30.0               # simulation timestep (s)
+  r0_ms: 0.08              # base rate of spread on flat grass, no wind (m/s). Chosen so the CA's
+                           # capped front speed (cell/step) leaves headroom for strong wind-driven
+                           # anisotropy; realized flat-grass ROS ~0.07 m/s, downwind ~0.26 m/s at 8 m/s.
+  fuel_factor: {grass: 1.0, brush: 0.7, timber: 0.45, urban: 0.12, water: 0.0}
+  urban_ignition_prob: 0.35 # extra Bernoulli gate for urban ignition per contact event
+  wind_c: 0.45              # wind coefficient in ROS wind factor phi_w = 1 + c * U^b * cos_+(theta)
+  wind_b: 1.2               # wind exponent
+  slope_c: 5.275            # Rothermel slope coefficient phi_s = 1 + c * tan(slope)^2 (upslope only)
+  spread_stochasticity: 0.15 # multiplicative lognormal sigma on per-cell ROS (stochastic variant)
+  ensemble:
+    n_members: 100
+    ignition_jitter_cells: 3.0
+    wind_dir_jitter_deg: 15.0
+    wind_speed_jitter_frac: 0.20
+
+surrogate:
+  horizon_min: 10.0         # one model step = +10 sim-minutes
+  dataset:
+    n_worlds: 160           # world ids 1..n_worlds (id 0 = canonical demo world, never trained on)
+    fires_per_world: 16     # independent ignitions simulated per world
+    snapshots_per_fire: 20  # 10-min snapshots -> up to 20 (t, t+10) pairs per fire
+    dir: data/surrogate     # one compressed shard per world; existing shards are skipped (resume)
+    holdout_wind_regime:    # worlds whose base wind dir falls here are excluded from training entirely
+      dir_deg_min: 80.0
+      dir_deg_max: 130.0
+  model:
+    base_channels: 24       # UNet width; ~1.2M params (hard cap 5M asserted in code)
+  train:
+    crop: 64                # training crop side (fully-conv model evaluates at 256)
+    batch_size: 16
+    lr: 2.0e-3
+    max_steps: 9000
+    oversample_early: 4     # repeat t<=2 (small-fire) pairs: detection-time forecasts start tiny
+    val_every: 200
+    checkpoint_every: 200
+    early_stop_patience: 6  # val checks without improvement
+    val_world_frac: 0.2     # fraction of worlds held out for validation (split by world)
+    dir: data/checkpoints
+  eval:
+    n_eval_worlds: 8
+    speedup_members: 20     # ensemble size for the wall-clock speedup benchmark
+
+sensors:
+  n_nodes: 12
+  sample_hz: 1.0
+  plume:
+    q_fire: 9000.0          # emission strength per burning 10m cell (mass units/s), calibrated so a
+                            # young (~30-cell) fire reads tens of ug/m3 PM2.5 at 300-900 m downwind,
+                            # consistent in order of magnitude with observed wildfire plume readings
+    sigma_y_coef: 0.10      # lateral dispersion sigma_y = coef * downwind_distance
+    sigma_z_coef: 0.06
+    background_pm25: 8.0    # ug/m3 diurnal mean
+  noise:
+    pm25_sigma: 1.2
+    voc_sigma: 0.03
+    temp_sigma: 0.15
+    rh_sigma: 0.8
+    drift_per_day: 0.5      # slow additive PM2.5 drift (ug/m3/day), random sign per node
+  confounders: [bbq, wood_stove, vehicle, fog, dust, aerosol]
+  window_s: 60              # classifier window length (s)
+
+detect:
+  dataset:
+    n_fire_events: 120
+    n_confounder_events: 240
+    n_ambient_windows: 2000
+    dir: data/detect
+  train:
+    batch_size: 64
+    lr: 1.0e-3
+    max_epochs: 30
+    early_stop_patience: 5
+    val_event_frac: 0.25    # split by EVENT, never by window
+  threshold: 0.5
+
+mesh:
+  n_hops_test: 6
+  freq_mhz: 915.0
+  tx_power_dbm: 20.0
+  sensitivity_dbm: -129.0   # LoRa SF10-ish
+  path_loss_exponent: 2.9   # log-distance model, semi-rural
+  ref_loss_db: 40.0         # loss at 1 m reference
+  terrain_occlusion_db_per_m: 0.08  # penalty per metre of terrain intrusion into line-of-sight
+  packet_loss_base: 0.02
+  airtime_ms: 400.0         # per packet (SF10, ~50 byte payload)
+  duty_cycle: 0.01          # FCC Part 15 / ETSI-style 1% duty-cycle budget per node (config-documented constraint)
+  backoff_ms_max: 800.0
+  corroboration_window_s: 120.0
+  health_weight_floor: 0.2  # minimum corroboration weight for a degraded node
+  heartbeat_period_s: 60.0
+  heartbeat_airtime_ms: 80.0
+  escalation:
+    tier0_conf: 0.60        # single-node chirp threshold
+    tier1_conf: 0.85        # single healthy node -> voice alert
+    tier1_score: 1.20       # or health-weighted corroboration score
+    tier2_score: 1.60       # multi-node weighted score -> full cascade (needs >=2 nodes)
+
+foresight:
+  cone_thresholds: [0.10, 0.30, 0.60]   # burn-probability contour levels
+  cone_margin_cells: 4                  # safety margin added around cone for routing
+  routing_horizon_min: 30               # roads cut where fire is likely within this window
+  routing_threshold: 0.30               # ...at or above this burn probability
+  road_capacity_vph: 900                # vehicles/hour per road edge
+  ensemble_members: 30
+  horizons_min: [10, 30, 60]
+
+demo:
+  out_dir: demo/out
+  frame_every_min: 5
+
+economics:                # stretch (c): all inputs are ILLUSTRATIVE assumptions
+  n_nodes: 12
+  node_unit_usd: 180.0    # BOM: MCU+LoRa+PM/VOC/T/RH sensors+solar+siren, small volume
+  install_per_node_usd: 120.0
+  annual_maint_per_node_usd: 25.0
+  town_structures: 315            # from worldgen (matches canonical world 0)
+  avg_structure_value_usd: 350000.0
+  annual_ignition_prob: 0.03      # P(threatening wildfire reaches town approach in a year)
+  loss_fraction_no_warning: 0.25  # fraction of town value lost without early warning
+  loss_reduction_with_warning: 0.35 # relative loss averted given >=15 min extra warning
+  horizon_years: 10
