@@ -1,0 +1,21 @@
+{
+  "_generated_utc": "2026-08-30T16:17:04+00:00",
+  "backend": "surrogate",
+  "cascade_max_hops": 1,
+  "cascade_median_latency_s": 0.4,
+  "channel_utilization": 0.0021,
+  "forecast_wall_s": [
+    23.41,
+    20.79
+  ],
+  "ignition_estimate_error_m": 248,
+  "ignition_sim_min": 8,
+  "mesh_collisions": 0,
+  "mesh_tx_total": 851,
+  "replan_moved_access_points": 0,
+  "scenario": "ridgeline",
+  "tier0_sim_s_after_ignition": 30,
+  "tier1_sim_s_after_ignition": 120,
+  "tier2_sim_s_after_ignition": 300,
+  "truth_burned_ha_at_end": 145.0
+}

@@ -106,3 +106,27 @@ Detection latency over 25 fresh simulated fires: median
 positive window (3 fires never produced a classifiable plume at any
 node — typically burning away from the network).
 <!-- END detect -->
+
+<!-- BEGIN surrogate -->
+## Neural surrogate (Phase 3)
+
+Regenerate: `python -m emberline.surrogate.eval` (uses `data/checkpoints/best.pt`,
+config `surrogate.*` in config.yaml). Splits are by WORLD; the held-out wind
+regime (80-130 deg) never appeared in training.
+
+| split | fires | IoU@+10 | IoU@+30 | IoU@+60 | arrival MAE (min) |
+|---|---|---|---|---|---|
+| val (unseen worlds)  64 | 0.551 | 0.655 | 0.621 | 4.2 |
+| held-out wind regime  64 | 0.296 | 0.411 | 0.478 | 9.4 |
+
+Worst-case: 5th-percentile IoU@+30 across val fires = **0.248**.
+
+Ensemble wall-clock, 20 members x 60 sim-min on 4 CPU threads:
+physics 5.11 s vs surrogate 12.65 s ->
+**0.4x**.
+
+Gap analysis (targets were goals, not claims):
+- IoU@+30 = 0.655 misses the 0.80 aspirational target. Main error mode: autoregressive drift — small front-position errors compound over 3 steps; more training worlds and longer training (this run was CPU-budget-capped) are the obvious levers.
+- Held-out wind regime IoU@+30 = 0.411 vs 0.655 on val: the model generalizes worse to wind directions it never saw. Late-stage fine-tuning that oversampled small-fire frames improved worst-case behaviour but sharpened this regime gap; the fix is training-time wind-direction augmentation (rotate world+wind jointly), which we did not fit in the CPU budget.
+- Ensemble speedup = 0.4x misses the 100x target. Context: our physics baseline is itself a heavily vectorised CA (5.1 s for 20 members x 60 min), not an operational-grade solver, so the denominator is unusually fast. Against FARSITE-class physics the surrogate's one-forward-per-10-min batched rollout would win by orders of magnitude; here it wins by batching members through one network pass.
+<!-- END surrogate -->
