@@ -1,0 +1,16 @@
+# HAND-AUTHORED illustrative hindcast scenario.
+# This is NOT a record of a real historical fire; it encodes a typical
+# "evening ridge start, late human report" pattern so the harness can be
+# demonstrated. Swap in real perimeters/timelines via the adapters to make
+# warning-minutes-gained a real claim.
+name: dry_ridge_evening
+description: Evening ridge ignition upwind of town; first 911 call comes late
+  because the smoke column is hard to see at dusk.
+world_id: 0
+ignition_cell: [154, 138]     # the 307 m ridge upwind of the demo town
+start_hour_local: 19.5
+report_911_min: 22.0          # hand-authored: minutes from ignition to first human report
+wind:
+  speed_ms: 7.0
+  dir_deg: 240.0
+max_minutes: 45
