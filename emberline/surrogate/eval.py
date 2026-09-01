@@ -107,6 +107,9 @@ def benchmark_speedup(cfg: dict[str, Any], engine: SurrogateEngine, world_id: in
 def main() -> None:
     ap = argparse.ArgumentParser(description="Evaluate the fire surrogate")
     ap.add_argument("--cap", type=int, default=None, help="max fires per split")
+    ap.add_argument("--compare-baseline", default=None, metavar="JSON",
+                    help="path to the archived v1 metrics JSON; also writes the "
+                         "Phase-9 wind-augmentation before/after section")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -190,6 +193,80 @@ Gap analysis (targets were goals, not claims):
     print(f"worst-case p5 IoU@+30: {p5_iou30:.3f}")
     print(f"speedup: {bench}")
     print("wrote metrics/surrogate.json and REPORT.md section")
+
+    if args.compare_baseline:
+        _write_wind_aug_section(args.compare_baseline, metrics)
+
+
+def _write_wind_aug_section(baseline_path: str, new: dict[str, Any]) -> None:
+    """Phase 9 before/after table: v1 (pre-augmentation) vs v2, never overwriting
+    the old record. Three columns because the v1 numbers exist twice: as quoted
+    in the original REPORT.md (built on the team laptop, carried into the
+    Round-2 brief) and as re-measured HERE from the archived v1 checkpoint on
+    the deterministically regenerated dataset — torch CPU kernels differ across
+    platforms and autoregressive thresholding amplifies the difference, so the
+    same-machine v1/v2 pair is the like-for-like comparison."""
+    import json
+    import pathlib
+
+    old = json.loads(pathlib.Path(baseline_path).read_text(encoding="utf-8"))
+    # Historical values quoted from the pre-migration REPORT.md via the Round-2
+    # task brief. QUOTED, not measured here; shown for continuity only.
+    quoted_val_iou30, quoted_hold_iou30 = 0.681, 0.368
+
+    def row(label, key):
+        o_v, o_h = old["val"].get(key), old["holdout_wind_regime"].get(key)
+        n_v, n_h = new["val"].get(key), new["holdout_wind_regime"].get(key)
+        return (f"| {label} | {o_v:.3f} / {o_h:.3f} | {n_v:.3f} / {n_h:.3f} |")
+
+    gap_old = old["val"]["iou_30"] - old["holdout_wind_regime"]["iou_30"]
+    gap_new = new["val"]["iou_30"] - new["holdout_wind_regime"]["iou_30"]
+    d_hold = new["holdout_wind_regime"]["iou_30"] - old["holdout_wind_regime"]["iou_30"]
+    d_val = new["val"]["iou_30"] - old["val"]["iou_30"]
+    d60 = new["val"]["iou_60"] - old["val"]["iou_60"]
+    verdict = (
+        f"The held-out-regime IoU@+30 moved {d_hold:+.3f} and the val-holdout gap "
+        f"went from {gap_old:.3f} to {gap_new:.3f}"
+        + (" — the regime gap is closed" if gap_new <= 0.05 else
+           " — substantially narrowed but not fully closed" if gap_new < gap_old / 2 else
+           " — narrowed" if gap_new < gap_old else " — NOT closed")
+        + f"; val IoU@+30 moved {d_val:+.3f} alongside."
+        + (f" The cost is at the long horizon: val IoU@+60 moved {d60:+.3f} — "
+           "capacity now spreads across all wind orientations, and the +60 min "
+           "rollout (6 autoregressive steps) pays most for it. Operationally the "
+           "trade is accepted: wind-robust +10/+30 cones are what detection-time "
+           "routing uses." if d60 < -0.05 else ""))
+
+    update_section("wind-augmentation", f"""
+### Wind-augmentation retraining (Phase 9)
+
+Regenerate: `python -m emberline.surrogate.eval --compare-baseline metrics/surrogate_v1.json`
+(v1 = `data/checkpoints/best_v1.pt`, archived pre-augmentation checkpoint;
+v2 = `best.pt`, fine-tuned from v1 with joint world+wind rotation augmentation
+— `surrogate.train.rotate_augment` in config.yaml, implemented in
+`surrogate/datasets.py`, tested in `tests/test_surrogate.py`).
+
+For continuity: the original build's REPORT quoted **val IoU@+30 {quoted_val_iou30}
+/ held-out-regime {quoted_hold_iou30}** (team-laptop build of the same v1
+checkpoint; those numbers are preserved, not overwritten). Re-measured on THIS
+machine from the archived v1 checkpoint and the deterministically regenerated
+dataset, v1 scores {old['val']['iou_30']:.3f} / {old['holdout_wind_regime']['iou_30']:.3f}
+— cross-platform torch kernel differences compound over autoregressive steps,
+so the like-for-like before/after is the same-machine pair below (64 fires per
+split, identical eval code and RNG streams):
+
+| metric (val / held-out wind regime) | v1 pre-augmentation | v2 wind-augmented |
+|---|---|---|
+{row("IoU@+10", "iou_10")}
+{row("IoU@+30", "iou_30")}
+{row("IoU@+60", "iou_60")}
+{row("arrival MAE (min)", "arrival_mae_min")}
+
+Worst-case p5 IoU@+30 (val): {old['worst_case_p5_iou_30']:.3f} → {new['worst_case_p5_iou_30']:.3f}.
+
+{verdict}
+""")
+    print("wrote REPORT.md wind-augmentation section")
 
 
 if __name__ == "__main__":

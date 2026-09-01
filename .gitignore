@@ -12,5 +12,6 @@ data/*
 !data/checkpoints
 data/checkpoints/*
 !data/checkpoints/best.pt
+!data/checkpoints/best_v1.pt
 !data/checkpoints/detect_cnn.pt
 !data/checkpoints/detect_gbm.joblib
