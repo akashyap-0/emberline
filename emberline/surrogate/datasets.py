@@ -23,10 +23,37 @@ from typing import Any
 
 import numpy as np
 import torch
+from scipy.ndimage import map_coordinates
 from torch.utils.data import Dataset
 
 from .data import is_holdout_regime, shard_path
 from .model import ELEV_SCALE, WIND_SCALE
+
+
+def rotate_wind(u: float, v: float, theta: float) -> tuple[float, float]:
+    """Rotate the wind vector by ``theta`` radians in array (col=x, row=y) space.
+
+    Must use the SAME rotation matrix as :func:`rotated_crop_coords` so the
+    world and its wind stay physically consistent under augmentation.
+    """
+    c, s = np.cos(theta), np.sin(theta)
+    return float(u * c - v * s), float(u * s + v * c)
+
+
+def rotated_crop_coords(center_rc: tuple[float, float], crop: int,
+                        theta: float) -> np.ndarray:
+    """(2, crop, crop) source [row, col] coordinates for a crop rotated by theta.
+
+    Output pixel at offset (dc', dr') from the crop centre samples the world at
+    offset R(-theta)·(dc', dr') from ``center_rc`` — i.e. the crop shows the
+    world rotated by +theta about the centre, matching :func:`rotate_wind`.
+    """
+    off = np.arange(crop, dtype=np.float64) - (crop - 1) / 2.0
+    dr, dc = np.meshgrid(off, off, indexing="ij")
+    c, s = np.cos(theta), np.sin(theta)
+    src_c = center_rc[1] + c * dc + s * dr
+    src_r = center_rc[0] - s * dc + c * dr
+    return np.stack([src_r, src_c])
 
 
 @dataclass
@@ -85,16 +112,26 @@ class FirePairDataset(Dataset):
     """(t, t+10min) pairs as crop tensors: x (10,c,c), y (2,c,c)."""
 
     def __init__(self, records: list[FireRecord], crop: int, rng_seed: int,
-                 full_frame: bool = False, oversample_early: int = 1) -> None:
+                 full_frame: bool = False, oversample_early: int = 1,
+                 rotate_augment: bool = False, rotate_keep_frac: float = 0.25) -> None:
         """``oversample_early``: repeat pairs with t <= 2 this many times.
 
         Detection-time forecasting always starts from a tiny fire, but only
         ~1 in 8 harvested pairs shows one; oversampling the early frames
         rebalances training toward the operationally critical regime.
+
+        ``rotate_augment``: rotate world (terrain+fuel+fire) AND wind jointly
+        by a uniform random angle per sample (Phase 9). This makes the wind-
+        direction distribution seen in training isotropic, which is the fix
+        for the held-out-wind-regime generalization gap. ``rotate_keep_frac``
+        of samples are left unrotated so native (un-resampled) grid statistics
+        stay represented — rollout evaluation always runs on unrotated grids.
         """
         self.records = records
         self.crop = crop
         self.full = full_frame
+        self.rotate = rotate_augment
+        self.keep_frac = float(rotate_keep_frac)
         self.rng = np.random.default_rng(rng_seed)
         self.index: list[tuple[int, int]] = []  # (record, t)
         for ri, rec in enumerate(records):
@@ -118,9 +155,44 @@ class FirePairDataset(Dataset):
         c0 = int(np.clip(c - self.crop // 2, 0, w - self.crop))
         return r0, c0
 
+    def _rotated_item(self, rec: FireRecord, t: int):
+        """Crop sampled through a rotated grid; wind rotated by the same angle."""
+        s_t, s_n = rec.states[t], rec.states[t + 1]
+        h, w = s_t.shape
+        theta = float(self.rng.uniform(0.0, 2.0 * np.pi))
+        # Centre on a jittered front cell, clamped so every rotated-crop corner
+        # stays inside the world (half-diagonal margin) — no fill artefacts.
+        rr, cc = np.where(s_t > 0)
+        k = self.rng.integers(len(rr))
+        margin = int(np.ceil(self.crop / 2 * np.sqrt(2))) + 1
+        cr = float(np.clip(rr[k] + self.rng.integers(-10, 11), margin, h - 1 - margin))
+        cc_ = float(np.clip(cc[k] + self.rng.integers(-10, 11), margin, w - 1 - margin))
+        coords = rotated_crop_coords((cr, cc_), self.crop, theta)
+
+        def nearest(plane: np.ndarray) -> np.ndarray:
+            return map_coordinates(plane.astype(np.float32), coords, order=0,
+                                   mode="nearest")
+
+        elev = map_coordinates(rec.static[0], coords, order=1, mode="nearest")
+        fuel_planes = [nearest(rec.static[j]) for j in range(1, rec.static.shape[0])]
+        u, v = rotate_wind(*(rec.winds[t] / WIND_SCALE), theta)
+        shape = (1, self.crop, self.crop)
+        x = np.concatenate([
+            nearest(s_t > 0)[None],
+            nearest(s_t == 1)[None],
+            elev[None].astype(np.float32),
+            np.stack(fuel_planes),
+            np.full(shape, u, dtype=np.float32),
+            np.full(shape, v, dtype=np.float32),
+        ])
+        y = np.stack([nearest(s_n > 0), nearest(s_n == 1)])
+        return torch.from_numpy(x), torch.from_numpy(y)
+
     def __getitem__(self, i: int):
         ri, t = self.index[i]
         rec = self.records[ri]
+        if self.rotate and not self.full and self.rng.random() >= self.keep_frac:
+            return self._rotated_item(rec, t)
         s_t, s_n = rec.states[t], rec.states[t + 1]
         touched_t = (s_t > 0).astype(np.float32)
         if self.full:

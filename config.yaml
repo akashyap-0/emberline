@@ -66,6 +66,8 @@ surrogate:
     lr: 2.0e-3
     max_steps: 9000
     oversample_early: 4     # repeat t<=2 (small-fire) pairs: detection-time forecasts start tiny
+    rotate_augment: true    # Phase 9: jointly rotate world (terrain+fuel+fire) and wind per sample
+    rotate_keep_frac: 0.25  # fraction of samples left unrotated (keeps native grid statistics)
     val_every: 200
     checkpoint_every: 200
     early_stop_patience: 6  # val checks without improvement
@@ -132,6 +134,8 @@ mesh:
 
 foresight:
   cone_thresholds: [0.10, 0.30, 0.60]   # burn-probability contour levels
+  temperature: null       # Phase 10: optional temperature scaling of cone probabilities
+                          # (fitted value lives in metrics/calibration.json; null = raw)
   cone_margin_cells: 4                  # safety margin added around cone for routing
   routing_horizon_min: 30               # roads cut where fire is likely within this window
   routing_threshold: 0.30               # ...at or above this burn probability

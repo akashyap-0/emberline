@@ -106,3 +106,89 @@ Detection latency over 25 fresh simulated fires: median
 positive window (3 fires never produced a classifiable plume at any
 node — typically burning away from the network).
 <!-- END detect -->
+
+<!-- BEGIN surrogate -->
+## Neural surrogate (Phase 3)
+
+Regenerate: `python -m emberline.surrogate.eval` (uses `data/checkpoints/best.pt`,
+config `surrogate.*` in config.yaml). Splits are by WORLD; the held-out wind
+regime (80-130 deg) never appeared in training.
+
+| split | fires | IoU@+10 | IoU@+30 | IoU@+60 | arrival MAE (min) |
+|---|---|---|---|---|---|
+| val (unseen worlds)  64 | 0.678 | 0.627 | 0.507 | 3.7 |
+| held-out wind regime  64 | 0.651 | 0.657 | 0.523 | 3.0 |
+
+Worst-case: 5th-percentile IoU@+30 across val fires = **0.369**.
+
+Ensemble wall-clock, 20 members x 60 sim-min on 4 CPU threads:
+physics 6.82 s vs surrogate 14.23 s ->
+**0.5x**.
+
+Gap analysis (targets were goals, not claims):
+- IoU@+30 = 0.627 misses the 0.80 aspirational target. Main error mode: autoregressive drift — small front-position errors compound over 3 steps; more training worlds and longer training (this run was CPU-budget-capped) are the obvious levers.
+- Ensemble speedup = 0.5x misses the 100x target. Context: our physics baseline is itself a heavily vectorised CA (6.8 s for 20 members x 60 min), not an operational-grade solver, so the denominator is unusually fast. Against FARSITE-class physics the surrogate's one-forward-per-10-min batched rollout would win by orders of magnitude; here it wins by batching members through one network pass.
+<!-- END surrogate -->
+
+<!-- BEGIN hindcast -->
+### Hindcast harness (Phase 11 expansion: 6 scenarios)
+
+Regenerate: `python -m emberline.foresight.hindcast scenarios/*.yaml`. Scenario
+files are **hand-authored illustrative patterns, not real fire records** (the
+file format + adapters are the path to real hindcasts). Minutes from ignition:
+
+| scenario | conditions | Tier-0 | Tier-2 cascade | first 911 report (authored) | warning minutes gained |
+|---|---|---|---|---|---|
+| dry_ridge_evening | 7 m/s, nearest node 152 m | 0.0 | 2.5 | 22.0 | **19.5** |
+| valley_night | 4 m/s, nearest node 212 m | 1.0 | — | 55.0 | **—** |
+| highwind_ridge_run | 14 m/s, nearest node 786 m | 4.5 | 7.5 | 15.0 | **7.5** |
+| stagnant_far_corner | 3 m/s, nearest node 1052 m | — | — | 65.0 | **—** |
+| town_origin_fire | 6 m/s, nearest node 453 m | 5.0 | 12.5 | 6.0 | **-6.5** |
+| degraded_mesh_ridge | 7 m/s, 2 nodes down (N0,N7), nearest node 396 m | 5.0 | — | 22.0 | **—** |
+
+A "—" means the mesh never corroborated to a cascade: the harness is thus
+also a **siting design tool** — it shows where the network layout would have
+missed, before any hardware is planted. Measured outcomes this run:
+
+* Cascades fired in 3/6 scenarios (warning minutes vs the authored 911 call: +19.5, +7.5, -6.5); their ignitions sat 152-786 m from the nearest alive node.
+* Missed entirely: **valley_night** (nearest alive node 212 m, wind 4 m/s, Tier-0 only at 1 min); **stagnant_far_corner** (nearest alive node 1052 m, wind 3 m/s, zero detections); **degraded_mesh_ridge** (nearest alive node 396 m, wind 7 m/s, 2 nodes down, Tier-0 only at 5 min).
+
+**Siting implications** (each sentence is generated from the measured rows
+above; a re-run with different outcomes rewrites or drops it):
+
+* **Low-wind fires defeat corroboration, not detection**: valley_night chirped Tier-0 at 1 min but a 4 m/s drift puts smoke on only one node's line, and the ladder (by design) refuses single-node cascades — the layout needs a second node along each low-wind drainage path, not more confidence.
+* **The ring has a hard radius**: stagnant_far_corner produced ZERO detection windows in 80 min with the nearest node 1052 m away at 3 m/s — fires outside roughly a kilometre of the perimeter in near-calm are invisible until they grow or the wind turns.
+* **Two nodes are single points of cascade**: the same ridge fire that cascaded in 2.5 min with the full mesh never cascaded at all with 2 nodes down (N0,N7) — Tier-0 still fired at 5 min, so one node smelled it and no second ever corroborated. The eastern ridge sector has no detection redundancy.
+* **In-town starts don't need the mesh to raise the alarm**: humans beat the cascade by 6.5 min in town_origin_fire; the system's value there is what follows the alarm (cones, routing, CAP draft), not detection speed.
+* **High wind compresses but keeps the margin**: at 14 m/s the cascade still landed 7.5 min before the (already fast) authored 911 call.
+<!-- END hindcast -->
+
+<!-- BEGIN wind-augmentation -->
+### Wind-augmentation retraining (Phase 9)
+
+Regenerate: `python -m emberline.surrogate.eval --compare-baseline metrics/surrogate_v1.json`
+(v1 = `data/checkpoints/best_v1.pt`, archived pre-augmentation checkpoint;
+v2 = `best.pt`, fine-tuned from v1 with joint world+wind rotation augmentation
+— `surrogate.train.rotate_augment` in config.yaml, implemented in
+`surrogate/datasets.py`, tested in `tests/test_surrogate.py`).
+
+For continuity: the original build's REPORT quoted **val IoU@+30 0.681
+/ held-out-regime 0.368** (team-laptop build of the same v1
+checkpoint; those numbers are preserved, not overwritten). Re-measured on THIS
+machine from the archived v1 checkpoint and the deterministically regenerated
+dataset, v1 scores 0.655 / 0.411
+— cross-platform torch kernel differences compound over autoregressive steps,
+so the like-for-like before/after is the same-machine pair below (64 fires per
+split, identical eval code and RNG streams):
+
+| metric (val / held-out wind regime) | v1 pre-augmentation | v2 wind-augmented |
+|---|---|---|
+| IoU@+10 | 0.551 / 0.296 | 0.678 / 0.651 |
+| IoU@+30 | 0.655 / 0.411 | 0.627 / 0.657 |
+| IoU@+60 | 0.621 / 0.478 | 0.507 / 0.523 |
+| arrival MAE (min) | 4.244 / 9.406 | 3.674 / 2.986 |
+
+Worst-case p5 IoU@+30 (val): 0.248 → 0.369.
+
+The held-out-regime IoU@+30 moved +0.246 and the val-holdout gap went from 0.244 to -0.030 — the regime gap is closed; val IoU@+30 moved -0.028 alongside. The cost is at the long horizon: val IoU@+60 moved -0.115 — capacity now spreads across all wind orientations, and the +60 min rollout (6 autoregressive steps) pays most for it. Operationally the trade is accepted: wind-robust +10/+30 cones are what detection-time routing uses.
+<!-- END wind-augmentation -->

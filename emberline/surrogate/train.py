@@ -77,8 +77,15 @@ def validate(model: FireUNet, loader: DataLoader) -> float:
 
 
 def train(cfg: dict[str, Any], resume: bool = True, max_steps: int | None = None,
-          max_minutes: float | None = None) -> pathlib.Path:
-    """Train the surrogate; returns path to best checkpoint."""
+          max_minutes: float | None = None, init_from: str | None = None,
+          lr: float | None = None) -> pathlib.Path:
+    """Train the surrogate; returns path to best checkpoint.
+
+    ``init_from``: warm-start MODEL WEIGHTS from an existing checkpoint
+    (fresh optimizer, step 0) — the fine-tune path. Ignored when a
+    ``latest.pt`` resume is available, so an interrupted fine-tune still
+    resumes from its own latest state.
+    """
     torch.set_num_threads(max(4, (torch.get_num_threads() or 4)))
     torch.manual_seed(int(cfg["seed"]))
     tr = cfg["surrogate"]["train"]
@@ -91,7 +98,12 @@ def train(cfg: dict[str, Any], resume: bool = True, max_steps: int | None = None
     val_recs = load_records(cfg, splits["val"])
     crop = int(tr["crop"])
     train_ds = FirePairDataset(train_recs, crop, rng_seed=int(cfg["seed"]) + 1,
-                               oversample_early=int(tr.get("oversample_early", 1)))
+                               oversample_early=int(tr.get("oversample_early", 1)),
+                               rotate_augment=bool(tr.get("rotate_augment", False)),
+                               rotate_keep_frac=float(tr.get("rotate_keep_frac", 0.25)))
+    if train_ds.rotate:
+        print("augmentation: joint world+wind rotation ON "
+              f"(keep_frac={train_ds.keep_frac})")
     val_ds = FirePairDataset(val_recs, crop, rng_seed=int(cfg["seed"]) + 2)
     print(f"pairs: train={len(train_ds)} val={len(val_ds)}")
 
@@ -103,7 +115,7 @@ def train(cfg: dict[str, Any], resume: bool = True, max_steps: int | None = None
     model = FireUNet(int(cfg["surrogate"]["model"]["base_channels"]))
     n_params = sum(p.numel() for p in model.parameters())
     print(f"model params: {n_params:,}")
-    opt = torch.optim.Adam(model.parameters(), lr=float(tr["lr"]))
+    opt = torch.optim.Adam(model.parameters(), lr=float(lr if lr is not None else tr["lr"]))
 
     d = ckpt_dir(cfg)
     latest, best = d / "latest.pt", d / "best.pt"
@@ -115,6 +127,12 @@ def train(cfg: dict[str, Any], resume: bool = True, max_steps: int | None = None
         step, best_iou = state["step"], state["best_iou"]
         torch.set_rng_state(state["torch_rng"])
         print(f"resumed from step {step} (best val IoU {best_iou:.4f})")
+    elif init_from:
+        state = torch.load(init_from, weights_only=False, map_location="cpu")
+        model.load_state_dict(state["model"])
+        print(f"fine-tuning from weights of {init_from} "
+              f"(source step {state.get('step', '?')}, "
+              f"val IoU {state.get('best_iou', float('nan')):.4f})")
 
     model.train()
     t0 = time.perf_counter()
@@ -169,9 +187,12 @@ def main() -> None:
     ap.add_argument("--max-steps", type=int, default=None)
     ap.add_argument("--max-minutes", type=float, default=None,
                     help="hard wall-clock cap; stops gracefully at best checkpoint")
+    ap.add_argument("--init-from", type=str, default=None,
+                    help="warm-start model weights from this checkpoint (fine-tune)")
+    ap.add_argument("--lr", type=float, default=None, help="override config lr")
     args = ap.parse_args()
     train(load_config(), resume=not args.no_resume, max_steps=args.max_steps,
-          max_minutes=args.max_minutes)
+          max_minutes=args.max_minutes, init_from=args.init_from, lr=args.lr)
 
 
 if __name__ == "__main__":

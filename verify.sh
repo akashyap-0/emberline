@@ -16,7 +16,9 @@ echo "== unit tests =="
 python -m pytest -q
 
 echo "== end-to-end smoke (fast demo, physics fallback allowed) =="
-python -m emberline.demo --scenario ridgeline --fast --kill-node N3 --wind-shift 35 \
+# Same flags as the canonical acceptance/pitch-asset run, so every verify
+# regenerates demo/out/last_run_artifacts.* consistent with the pitch assets.
+python -m emberline.demo --scenario ridgeline --fast --kill-node N3 --wind-shift 40 \
     | tail -25
 
 echo "VERIFY: ALL GREEN"
