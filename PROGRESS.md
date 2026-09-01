@@ -1,5 +1,48 @@
 # Emberline build log
 
+## 2026-09-01 ~05:50 UTC — ROUND 2, Phase 10: calibration + temperature scaling ✅
+
+Built: temperature scaling in `surrogate/calibration.py` — fit-then-verify on
+FRESH worlds (fit 161-168, DISJOINT check 169-172; both outside every
+train/val/holdout split), NLL over interior (unsaturated) ensemble
+frequencies, saturated 0/1 frequencies pass through unscaled; optional
+`foresight.temperature` hook (default null). 4 unit tests.
+
+Two naive fit objectives failed measurably and are documented in code+REPORT:
+plain NLL (saturation-dominated; T=2.59 worsened val ECE 0.060→0.229) and
+direct binned-ECE (degenerate base-rate collapse; T→grid edge, val 0.330).
+
+Measured (12 val fires, same rng stream as the original ECE):
+- Headline shipped-config before/after: **ECE 0.113 (v1, quoted) → 0.060 (v2
+  raw, this machine)** — the Phase-9 retraining itself did most of the
+  calibrating. v1 re-measured here: raw 0.148.
+- Honest finding: the cal-world-fitted T=2.37 passes its disjoint-world check
+  (0.290→0.267) but does NOT transfer to the val population (0.060→0.196), so
+  no scaling ships (`foresight.temperature: null`); population disagreement +
+  small-sample caveats documented in REPORT.md. v1's candidate (T=0.83) was
+  rejected by its check worlds.
+- `demo/out/calibration_v2.png` (committed) carries both curves.
+
+## 2026-09-01 ~05:05 UTC — ROUND 2, Phase 11: hindcast scenario expansion ✅
+
+4 new hand-authored scenarios (all world 0, deterministic replays):
+- `highwind_ridge_run` — 14 m/s SE approach, timber, 790 m from nearest node.
+- `stagnant_far_corner` — 3 m/s night smoulder >1 km NE of the ring.
+- `town_origin_fire` — urban-cell ignition INSIDE the town district.
+- `degraded_mesh_ridge` — dry_ridge_evening's fire with N0+N7 dead at start
+  (new harness support: `nodes_down:` kills nodes before head election).
+
+Measured (all 6 in REPORT.md, warning-minutes-gained vs authored 911):
+dry_ridge_evening **+19.5** (reproduces the original stretch number exactly),
+highwind_ridge_run **+7.5**, town_origin_fire **−6.5** (humans beat the mesh
+for in-town starts — honest negative), valley_night **—** (Tier-0 at 1 min,
+never corroborates), stagnant_far_corner **—** (ZERO detections in 80 min),
+degraded_mesh_ridge **—** (Tier-0 at 5 min, cascade never fires with the two
+best-placed nodes dead). Harness now emits a **siting implications** block
+generated from the measured rows (single-line-of-smell corroboration failure,
+~1 km hard radius, no eastern-ridge redundancy, in-town value is post-alarm
+products); metrics in `metrics/hindcast.json`.
+
 ## 2026-09-01 ~04:20 UTC — ROUND 2, Phase 9: wind-augmentation retraining ✅
 
 Environment: fresh cloud container (4 cores). Regenerated the full training

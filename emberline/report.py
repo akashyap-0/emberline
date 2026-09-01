@@ -58,3 +58,23 @@ def update_section(name: str, body: str) -> None:
     else:
         text = text.rstrip() + "\n\n" + block + "\n"
     path.write_text(text, encoding="utf-8")
+
+
+def reorder_sections(order: list[str]) -> None:
+    """Rewrite REPORT.md with its marker sections in the given order.
+
+    Content-preserving: every section block is kept verbatim (sections not
+    named in ``order`` follow at the end in their current order), so measured
+    numbers cannot change here — only their sequence.
+    """
+    import re
+
+    path = repo_root() / "REPORT.md"
+    text = path.read_text(encoding="utf-8")
+    pattern = re.compile(r"<!-- BEGIN (\S+) -->.*?<!-- END \1 -->", re.DOTALL)
+    blocks = {m.group(1): m.group(0) for m in pattern.finditer(text)}
+    header = text[: text.index("<!-- BEGIN")].rstrip() if blocks else text
+    names = [n for n in order if n in blocks]
+    names += [n for n in blocks if n not in names]
+    path.write_text(header + "\n\n" + "\n\n".join(blocks[n] for n in names) + "\n",
+                    encoding="utf-8")
