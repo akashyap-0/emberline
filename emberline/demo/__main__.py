@@ -233,7 +233,10 @@ def main() -> None:
     shift_at: float | None = None
     shifted = False
     cone = None
+    cone_before = None
+    cone_after = None
     plan_before = None
+    plan_after = None
     ig_est = None
     cap_path = None
     events_metrics: dict = {"scenario": args.scenario, "backend": foresight.backend,
@@ -260,12 +263,15 @@ def main() -> None:
                     hop_latencies.append((hops, t_ms - esc_t))
         printed_log = len(mesh.log)
 
+    fire_snaps: dict[str, np.ndarray] = {}
+
     def do_forecast(t_s: float, tag: str):
         nonlocal cone, forecasts_done
         wall0 = time.perf_counter()
         cone = foresight.forecast(ig_est, t0_s=t_s)
         wall = time.perf_counter() - wall0
         forecasts_done += 1
+        fire_snaps[tag] = truth.state.copy()
         nar.say(f"  Foresight: {cone.result.n_members}-member {foresight.backend} "
                 f"ensemble → cones +10/+30/+60 min in {wall:.1f} s wall-clock.", B)
         events_metrics.setdefault("forecast_wall_s", []).append(round(wall, 2))
@@ -347,7 +353,7 @@ def main() -> None:
                             f"latency {med/1000:.1f} s after escalation.", M, pause=1.0)
                     events_metrics["cascade_max_hops"] = worst
                     events_metrics["cascade_median_latency_s"] = round(med / 1000, 2)
-                do_forecast(t_s, "Tier-2")
+                cone_before = do_forecast(t_s, "Tier-2")
                 fcfg = cfg["foresight"]
                 rmask = cone.routing_mask(float(fcfg["routing_horizon_min"]),
                                           float(fcfg["routing_threshold"]))
@@ -368,6 +374,8 @@ def main() -> None:
                 nar.rule(f"node failure injected: {args.kill_node}")
                 was_head = args.kill_node == proto.head_id
                 mesh.kill_node(args.kill_node)
+                events_metrics["kill_sim_s_after_ignition"] = round(t_s - ig_min * 60)
+                events_metrics["killed_node"] = args.kill_node
                 nar.say(f"  {args.kill_node} destroyed mid-cascade "
                         f"({'it was the CLUSTER HEAD' if was_head else 'relay lost'}); "
                         f"watching for self-heal…", R, pause=1.0)
@@ -380,9 +388,11 @@ def main() -> None:
             nar.rule(f"wind shift: {args.wind_shift:+.0f}°")
             world.wind.apply_shift(t_s, dir_delta_deg=float(args.wind_shift))
             s_now, d_now = world.wind.at(t_s + 1)
+            events_metrics["windshift_sim_s_after_ignition"] = round(t_s - ig_min * 60)
+            events_metrics["windshift_deg"] = float(args.wind_shift)
             nar.say(f"  Front passage: wind now {s_now:.1f} m/s toward "
                     f"{np.rad2deg(d_now) % 360:.0f}°. Re-forecasting…", Y, pause=1.0)
-            do_forecast(t_s, "Post-shift")
+            cone_after = do_forecast(t_s, "Post-shift")
             fcfg = cfg["foresight"]
             plan_after = plan_evacuation(
                 world, cone.routing_mask(float(fcfg["routing_horizon_min"]),
@@ -411,6 +421,69 @@ def main() -> None:
             frames.append(frame)
 
     flush_mesh_log()
+
+    # First self-heal announcement after the injected kill (timeline asset).
+    if killed:
+        k_s = float(events_metrics.get("kill_sim_s_after_ignition", 0))
+        heals = [t for t, _, k, _ in mesh.log if k == "SELF-HEAL" and t / 1000.0 >= k_s]
+        if heals:
+            events_metrics["selfheal_sim_s_after_ignition"] = round(heals[0] / 1000.0)
+
+    # ---- raw artifact dump for pitch-quality re-rendering (Phase 12) ----
+    # Everything demo/pitch_assets.py draws comes from THIS run, via these
+    # files — no numbers are ever re-invented at plot time.
+    arts_dir = out_dir.parent
+    npz: dict[str, np.ndarray] = {
+        "fire_state_end": truth.state.astype(np.uint8),
+        "ignition_truth": np.array([ig_r, ig_c]),
+        "node_rc": np.array([[n.r, n.c] for n in mesh_nodes]),
+        "node_alive": np.array([n.alive for n in mesh_nodes]),
+        "node_health": np.array([n.health for n in mesh_nodes]),
+    }
+    if ig_est is not None:
+        npz["ignition_estimate"] = np.array(ig_est)
+    if cone_before is not None:
+        npz["cone_before_prob"] = cone_before.result.prob.astype(np.float32)
+        npz["cone_horizons_min"] = np.array(cone_before.result.horizons_min)
+        npz["cone_thresholds"] = np.array(cone_before.thresholds)
+        fcfg = cfg["foresight"]
+        npz["routing_mask_before"] = cone_before.routing_mask(
+            float(fcfg["routing_horizon_min"]), float(fcfg["routing_threshold"]))
+    if cone_after is not None:
+        npz["cone_after_prob"] = cone_after.result.prob.astype(np.float32)
+        fcfg = cfg["foresight"]
+        npz["routing_mask_after"] = cone_after.routing_mask(
+            float(fcfg["routing_horizon_min"]), float(fcfg["routing_threshold"]))
+    if "Tier-2" in fire_snaps:
+        npz["fire_state_tier2"] = fire_snaps["Tier-2"].astype(np.uint8)
+    if "Post-shift" in fire_snaps:
+        npz["fire_state_postshift"] = fire_snaps["Post-shift"].astype(np.uint8)
+    t2 = events_metrics.get("tier2_sim_s_after_ignition")
+    if t2 is not None:
+        npz["wind_uv_at_tier2"] = np.array(world.wind.uv(ig_min * 60 + float(t2)))
+    if shifted:
+        ts = float(events_metrics["windshift_sim_s_after_ignition"])
+        npz["wind_uv_after_shift"] = np.array(world.wind.uv(ig_min * 60 + ts + 60.0))
+    np.savez_compressed(arts_dir / "last_run_artifacts.npz", **npz)
+
+    def plan_json(plan) -> dict | None:
+        if plan is None:
+            return None
+        return {"routes": {f"{r},{c}": [[int(pr), int(pc)] for pr, pc in path]
+                           for (r, c), path in plan.routes.items()},
+                "exit_loads": {f"{r},{c}": int(v) for (r, c), v in plan.exit_loads.items()},
+                "blocked_edges": int(plan.blocked_edges),
+                "unreachable": len(plan.unreachable), "label": plan.label}
+
+    (arts_dir / "last_run_artifacts.json").write_text(json.dumps({
+        "plan_before": plan_json(plan_before),
+        "plan_after": plan_json(plan_after),
+        "mesh_log": [[t, n, k, txt] for t, n, k, txt in mesh.log],
+        "neighbors": {k: list(v) for k, v in mesh.neighbors.items()},
+        "head_final": proto.head_id,
+        "args": {"scenario": args.scenario, "wind_shift": args.wind_shift,
+                 "kill_node": args.kill_node},
+    }, indent=1), encoding="utf-8")
 
     # ------------------------------------------------------- act 6 -------
     if cap_path:
