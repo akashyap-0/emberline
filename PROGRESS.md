@@ -1,5 +1,26 @@
 # Emberline build log
 
+## 2026-09-01 ~06:30 UTC — ROUND 2, Phase 13: edge-case hardening ✅
+
+6 new stress tests (tests/test_stress.py), all passing; REPORT.md gains a
+"Stress testing" section that reports the measured outcomes INCLUDING the two
+real limitations discovered while writing them (documented + pinned by tests,
+deliberately not patched this round):
+- (a) Two simultaneous ignitions: physics runs two independent fronts fine;
+  the protocol corroborates BOTH fires into one incident and — the sharper
+  finding — **post-cascade storm suppression drops later DETECT packets at
+  the source**, so a second fire reported after the first cascade never
+  reaches the head (Foresight is never pointed at it).
+- (b) 7/12 nodes killed mid-scenario incl. the cluster head: self-heal
+  re-elects, the 5-node rump still cascades, and delivery reaches every
+  survivor.
+- (c) In-town urban ignition: spreads (slower than wildland, as designed);
+  ties to the town_origin_fire hindcast (−6.5 min vs 911).
+- (d) All-degraded mesh: measured to be STRICTER than the docs implied — the
+  distinct-origin gate (weight×conf ≥ 0.3) means floor-weighted (0.2) nodes
+  can NEVER corroborate to Tier 1/2 at any count; chirps only. Flip side
+  (siren-deaf degraded fleet) documented as the cost of health gating.
+
 ## 2026-09-01 ~06:15 UTC — ROUND 2, Phase 12: pitch-ready static assets ✅
 
 Built `emberline/demo/pitch_assets.py` (`python -m emberline.demo.pitch_assets

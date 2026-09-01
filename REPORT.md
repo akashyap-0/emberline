@@ -234,3 +234,35 @@ cone THRESHOLD semantics change but cone SHAPES at matched percentiles do
 not; the fit/check machinery stays in `surrogate/calibration.py` for the day
 real-sensor hindcasts give it a population worth fitting to.
 <!-- END calibration -->
+
+<!-- BEGIN stress -->
+## Stress testing (Phase 13)
+
+Regenerate: `python -m pytest tests/test_stress.py -v`. Six tests, all
+encoding MEASURED behaviour — current suite status: **PASS** (6 passed in 1.04s).
+Two designed limitations were found while writing them and are pinned by
+tests rather than hidden:
+
+| case | measured outcome |
+|---|---|
+| (a) two simultaneous ignitions | Physics: two independent fronts establish and grow (verified via connected-component labelling). Protocol: pre-cascade reports from BOTH fires corroborate a single incident (Tier 2 fires), but **detections arriving after the Tier-2 cascade are dropped at the source by storm suppression — a second fire reported post-cascade never reaches the head, so Foresight is never pointed at it**. The incident's mean bearing across two fires is physically meaningless. |
+| (b) >50% of nodes fail mid-scenario | 7 of 12 nodes killed, including the cluster head: heartbeat mourning fires, a new head self-elects, the 5-node rump mesh still corroborates two healthy reports to Tier 2, and the cascade reaches **every** surviving node. |
+| (c) ignition inside the town grid | Urban cells accept forced ignition and the fire spreads beyond the ignition patch, measurably slower than the timber-ridge fire under identical wind (fuel factor 0.12 + per-contact urban ignition gate). Hindcast counterpart: `town_origin_fire` cascades at 12.5 min but the authored 911 call beats it by 6.5 min — for in-town starts the mesh's value is the post-alarm products, not detection speed. |
+| (d) all nodes low-battery/degraded | Escalation's corroboration counts only detections with weight x confidence >= 0.3; a floor-weighted (0.2) report maxes out at 0.198, so **an all-degraded mesh can NEVER reach Tier 1/2 — even 12 nodes screaming at 0.99 stay at Tier-0 chirps.** Small degraded clusters (the realistic case) are correctly refused. |
+
+Failure modes documented, not fixed this round (each is a deliberate scope
+call, budget spent on documenting + pinning):
+
+* **Post-cascade deafness to a second fire** — storm suppression (the fix for
+  the 50-trigger broadcast storm) also silences new-fire reports once a
+  cascade has flooded. A fix needs incident disambiguation (e.g. bearing/
+  location clustering before suppression), which is protocol surgery, not a
+  patch. Until then: one cascade per corroboration window, and the town is
+  already at full siren when it matters.
+* **All-degraded siren-deafness** — the same gate that stops degraded nodes
+  from crying wolf makes a fully degraded network unable to raise the town
+  siren for a real fire (Tier-0 chirps still sound locally). That is the
+  documented cost of the health-gating design; operationally it argues for
+  maintenance alerts on fleet-wide health decay (mesh telemetry already
+  carries per-node health).
+<!-- END stress -->
