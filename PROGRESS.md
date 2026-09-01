@@ -1,5 +1,37 @@
 # Emberline build log
 
+## 2026-09-01 ~06:45 UTC — ROUND 2 COMPLETE (Phases 9-14) ✅
+
+Environment: fresh cloud container (4 cores, Linux). Started by regenerating
+the gitignored training data from seed (byte-deterministic, 16,841 pairs) and
+confirming `make verify` green on the committed state before touching code.
+
+Headline measured results (details + caveats in each phase entry below and in
+REPORT.md — quoted-vs-here differences are cross-platform torch variance,
+both records preserved):
+- **Phase 9**: joint world+wind rotation augmentation; held-out wind-regime
+  IoU@+30 **0.411 → 0.657** (val 0.655 → 0.627): regime gap CLOSED
+  (0.244 → −0.030). Honest cost: val IoU@+60 0.621 → 0.507. v1 checkpoint +
+  metrics archived; nothing overwritten.
+- **Phase 10**: temperature scaling (fit-then-verify on fresh disjoint
+  worlds). Shipped-config ECE **0.113 (quoted) / 0.148 (v1 here) → 0.060 (v2
+  raw)** — the retraining itself did the calibrating; the fitted T=2.37 fails
+  val-population transfer and does NOT ship (documented).
+- **Phase 11**: 6 hindcast scenarios; gains +19.5/+7.5 min, an honest −6.5
+  (in-town start), and 3 misses that map the layout's blind spots (siting
+  implications generated from measured rows).
+- **Phase 12**: six 1920×1080 pitch PNGs, every number from real runs,
+  committed; PITCH_ASSETS.md has captions + regen commands.
+- **Phase 13**: 6 stress tests passing; two real limitations documented and
+  pinned (post-cascade deafness to a second fire; all-degraded mesh can never
+  cascade).
+- **Phase 14**: REPORT.md TOC + section reorder; final `make verify` green
+  (54 tests + end-to-end smoke).
+
+Round-2 rules kept: no Phase 1-8 regressions (verify green at every commit),
+no fabricated numbers (every REPORT figure regenerates from a command), old
+numbers preserved beside new ones, adapters/ untouched, no UI.
+
 ## 2026-09-01 ~06:30 UTC — ROUND 2, Phase 13: edge-case hardening ✅
 
 6 new stress tests (tests/test_stress.py), all passing; REPORT.md gains a
