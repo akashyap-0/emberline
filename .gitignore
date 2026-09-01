@@ -4,7 +4,14 @@ __pycache__/
 build/
 .pytest_cache/
 outbox/
-demo/out/
+# demo/out is generated EXCEPT the committed deliverables: the Phase-10
+# reliability figure and the Phase-12 pitch assets (the container that renders
+# them is ephemeral; regen commands are in PITCH_ASSETS.md).
+demo/out/*
+!demo/out/calibration_v2.png
+!demo/out/pitch_assets/
+demo/out/pitch_assets/*
+!demo/out/pitch_assets/*.png
 
 # Bulk generated data stays out; the small trained artifacts that make a
 # fresh clone runnable (surrogate + detector checkpoints) are committed.

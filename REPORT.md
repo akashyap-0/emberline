@@ -108,7 +108,7 @@ node — typically burning away from the network).
 <!-- END detect -->
 
 <!-- BEGIN surrogate -->
-## Neural surrogate (Phase 3)
+## Neural surrogate (Phase 3, retrained in Phase 9)
 
 Regenerate: `python -m emberline.surrogate.eval` (uses `data/checkpoints/best.pt`,
 config `surrogate.*` in config.yaml). Splits are by WORLD; the held-out wind
@@ -116,8 +116,8 @@ regime (80-130 deg) never appeared in training.
 
 | split | fires | IoU@+10 | IoU@+30 | IoU@+60 | arrival MAE (min) |
 |---|---|---|---|---|---|
-| val (unseen worlds)  64 | 0.678 | 0.627 | 0.507 | 3.7 |
-| held-out wind regime  64 | 0.651 | 0.657 | 0.523 | 3.0 |
+| val (unseen worlds) | 64 | 0.678 | 0.627 | 0.507 | 3.7 |
+| held-out wind regime | 64 | 0.651 | 0.657 | 0.523 | 3.0 |
 
 Worst-case: 5th-percentile IoU@+30 across val fires = **0.369**.
 
@@ -192,3 +192,45 @@ Worst-case p5 IoU@+30 (val): 0.248 → 0.369.
 
 The held-out-regime IoU@+30 moved +0.246 and the val-holdout gap went from 0.244 to -0.030 — the regime gap is closed; val IoU@+30 moved -0.028 alongside. The cost is at the long horizon: val IoU@+60 moved -0.115 — capacity now spreads across all wind orientations, and the +60 min rollout (6 autoregressive steps) pays most for it. Operationally the trade is accepted: wind-robust +10/+30 cones are what detection-time routing uses.
 <!-- END wind-augmentation -->
+
+<!-- BEGIN calibration -->
+### Surrogate ensemble calibration + temperature scaling (Phase 10)
+
+Regenerate: `python -m emberline.surrogate.calibration`. Reliability of the
+20-member ensemble's P(burn by +30 min) against physics outcomes on
+12 val-world fires (cells near the fire; empty wilderness excluded). The raw
+curve is under-confident (observed frequencies exceed predictions).
+
+Phase 10's temperature scaling is fit-then-verify: a scalar T is fitted on
+12 fires from freshly generated fit worlds 161-168
+(outside every train/val/holdout split, never used for IoU eval), then must
+IMPROVE ECE on 6 fires from DISJOINT check worlds
+169-172 or the identity (T=1, no scaling) ships instead.
+sigmoid(logit(p)/T) applies to unsaturated ensemble frequencies only. The fit
+objective is NLL over interior frequencies — two
+naive objectives failed measurably first: plain NLL is dominated by saturated
+(exactly-0/1) quantised frequencies (its T=2.59 worsened val ECE 0.060→0.229),
+and direct binned-ECE minimisation is degenerate (collapsing toward the base
+rate zeroes fit-set ECE; T ran to the grid edge, val ECE 0.330). Both dead
+ends are kept in `fit_temperature`'s docstring.
+
+This run: candidate T = 2.37; disjoint-check-world ECE
+0.290 (raw) vs 0.267 (candidate) →
+**check PASSED**.
+
+| | ECE on the val fires (this checkpoint, this machine) |
+|---|---|
+| raw ensemble — **what the system ships** | **0.060** |
+| with the fitted T = 2.37 (not shipped) | 0.196 |
+
+**Transfer failure, documented rather than papered over**: on freshly generated worlds the ensemble measures badly miscalibrated (check-world raw ECE 0.290) and the fitted softening helps there, but the val population is already near-calibrated (raw 0.060) and the same T makes it WORSE (0.196). Two caveats bound this finding: each population estimate rests on only 6-12 fires (per-fire calibration variance is large), and the val split also selected the training checkpoint. Consequence: `foresight.temperature` stays null — raw cone probabilities ship.
+
+Baselines, for the before/after: the pre-Phase-9 checkpoint's REPORT quoted
+**ECE 0.113** (raw) on its build machine, and re-measured HERE from the archived `best_v1.pt` it scores **raw 0.148** (`metrics/calibration_v1.json`; same platform-variance story as the IoU numbers). **Most of the calibration
+fix came from the Phase-9 retraining itself** — the shipped-configuration
+before/after is 0.113 (v1, quoted) → **0.060** (v2 raw, this machine).
+Curves: `demo/out/calibration_v2.png`. Temperature scaling is monotone, so
+cone THRESHOLD semantics change but cone SHAPES at matched percentiles do
+not; the fit/check machinery stays in `surrogate/calibration.py` for the day
+real-sensor hindcasts give it a population worth fitting to.
+<!-- END calibration -->
