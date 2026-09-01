@@ -104,6 +104,65 @@ def benchmark_speedup(cfg: dict[str, Any], engine: SurrogateEngine, world_id: in
             "speedup_x": t_phys / t_surr}
 
 
+def write_surrogate_section(cfg: dict[str, Any], metrics: dict[str, Any]) -> None:
+    """Render the REPORT.md surrogate section from a metrics dict (as saved in
+    metrics/surrogate.json), so the section regenerates without a re-eval."""
+    val_agg, hold_agg = metrics["val"], metrics["holdout_wind_regime"]
+    p5_iou30 = metrics["worst_case_p5_iou_30"]
+    bench = metrics["speedup"]
+
+    def fmt(agg: dict[str, float]) -> str:
+        if not agg or agg.get("n_fires", 0) == 0:
+            return "| (no fires evaluated) | | | | |"
+        return (f"| {agg['n_fires']:.0f} | {agg['iou_10']:.3f} | {agg['iou_30']:.3f} "
+                f"| {agg['iou_60']:.3f} | {agg['arrival_mae_min']:.1f} |")
+
+    gap = []
+    if val_agg.get("iou_30", 0) < 0.80:
+        gap.append(f"- IoU@+30 = {val_agg.get('iou_30', float('nan')):.3f} misses the 0.80 "
+                   "aspirational target. Main error mode: autoregressive drift — small "
+                   "front-position errors compound over 3 steps; more training worlds and "
+                   "longer training (this run was CPU-budget-capped) are the obvious levers.")
+    if hold_agg.get("iou_30", 1.0) < val_agg.get("iou_30", 0.0) - 0.10:
+        gap.append(f"- Held-out wind regime IoU@+30 = {hold_agg['iou_30']:.3f} vs "
+                   f"{val_agg['iou_30']:.3f} on val: the model generalizes worse to wind "
+                   "directions it never saw, even with the Phase-9 rotation augmentation "
+                   "enabled — check `surrogate.train.rotate_augment` and consider more "
+                   "training steps.")
+    if bench["speedup_x"] < 100.0:
+        gap.append(f"- Ensemble speedup = {bench['speedup_x']:.1f}x misses the 100x target. "
+                   "Context: our physics baseline is itself a heavily vectorised CA "
+                   f"({bench['physics_s']:.1f} s for {bench['members']:.0f} members x 60 min), "
+                   "not an operational-grade solver, so the denominator is unusually fast. "
+                   "Against FARSITE-class physics the surrogate's one-forward-per-10-min "
+                   "batched rollout would win by orders of magnitude; here it wins by "
+                   "batching members through one network pass.")
+    gap_text = "\n".join(gap) if gap else "All aspirational targets met."
+
+    h = cfg["surrogate"]["dataset"]["holdout_wind_regime"]
+    body = f"""## Neural surrogate (Phase 3, retrained in Phase 9)
+
+Regenerate: `python -m emberline.surrogate.eval` (uses `data/checkpoints/best.pt`,
+config `surrogate.*` in config.yaml). Splits are by WORLD; the held-out wind
+regime ({h['dir_deg_min']:.0f}-{h['dir_deg_max']:.0f} deg) never appeared in training.
+
+| split | fires | IoU@+10 | IoU@+30 | IoU@+60 | arrival MAE (min) |
+|---|---|---|---|---|---|
+| val (unseen worlds) {fmt(val_agg)}
+| held-out wind regime {fmt(hold_agg)}
+
+Worst-case: 5th-percentile IoU@+30 across val fires = **{p5_iou30:.3f}**.
+
+Ensemble wall-clock, {bench['members']:.0f} members x 60 sim-min on 4 CPU threads:
+physics {bench['physics_s']:.2f} s vs surrogate {bench['surrogate_s']:.2f} s ->
+**{bench['speedup_x']:.1f}x**.
+
+Gap analysis (targets were goals, not claims):
+{gap_text}
+"""
+    update_section("surrogate", body)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Evaluate the fire surrogate")
     ap.add_argument("--cap", type=int, default=None, help="max fires per split")
@@ -137,57 +196,7 @@ def main() -> None:
         "targets": {"iou_30": 0.80, "speedup_x": 100.0},
     }
     save_metrics("surrogate", metrics)
-
-    def fmt(agg: dict[str, float]) -> str:
-        if not agg or agg.get("n_fires", 0) == 0:
-            return "| (no fires evaluated) | | | | |"
-        return (f"| {agg['n_fires']:.0f} | {agg['iou_10']:.3f} | {agg['iou_30']:.3f} "
-                f"| {agg['iou_60']:.3f} | {agg['arrival_mae_min']:.1f} |")
-
-    gap = []
-    if val_agg.get("iou_30", 0) < 0.80:
-        gap.append(f"- IoU@+30 = {val_agg.get('iou_30', float('nan')):.3f} misses the 0.80 "
-                   "aspirational target. Main error mode: autoregressive drift — small "
-                   "front-position errors compound over 3 steps; more training worlds and "
-                   "longer training (this run was CPU-budget-capped) are the obvious levers.")
-    if hold_agg.get("iou_30", 1.0) < val_agg.get("iou_30", 0.0) - 0.10:
-        gap.append(f"- Held-out wind regime IoU@+30 = {hold_agg['iou_30']:.3f} vs "
-                   f"{val_agg['iou_30']:.3f} on val: the model generalizes worse to wind "
-                   "directions it never saw. Late-stage fine-tuning that oversampled "
-                   "small-fire frames improved worst-case behaviour but sharpened this "
-                   "regime gap; the fix is training-time wind-direction augmentation "
-                   "(rotate world+wind jointly), which we did not fit in the CPU budget.")
-    if bench["speedup_x"] < 100.0:
-        gap.append(f"- Ensemble speedup = {bench['speedup_x']:.1f}x misses the 100x target. "
-                   "Context: our physics baseline is itself a heavily vectorised CA "
-                   f"({bench['physics_s']:.1f} s for {bench['members']:.0f} members x 60 min), "
-                   "not an operational-grade solver, so the denominator is unusually fast. "
-                   "Against FARSITE-class physics the surrogate's one-forward-per-10-min "
-                   "batched rollout would win by orders of magnitude; here it wins by "
-                   "batching members through one network pass.")
-    gap_text = "\n".join(gap) if gap else "All aspirational targets met."
-
-    body = f"""## Neural surrogate (Phase 3)
-
-Regenerate: `python -m emberline.surrogate.eval` (uses `data/checkpoints/best.pt`,
-config `surrogate.*` in config.yaml). Splits are by WORLD; the held-out wind
-regime ({cfg['surrogate']['dataset']['holdout_wind_regime']['dir_deg_min']:.0f}-{cfg['surrogate']['dataset']['holdout_wind_regime']['dir_deg_max']:.0f} deg) never appeared in training.
-
-| split | fires | IoU@+10 | IoU@+30 | IoU@+60 | arrival MAE (min) |
-|---|---|---|---|---|---|
-| val (unseen worlds) {fmt(val_agg)[1:]}
-| held-out wind regime {fmt(hold_agg)[1:]}
-
-Worst-case: 5th-percentile IoU@+30 across val fires = **{p5_iou30:.3f}**.
-
-Ensemble wall-clock, {bench['members']:.0f} members x 60 sim-min on 4 CPU threads:
-physics {bench['physics_s']:.2f} s vs surrogate {bench['surrogate_s']:.2f} s ->
-**{bench['speedup_x']:.1f}x**.
-
-Gap analysis (targets were goals, not claims):
-{gap_text}
-"""
-    update_section("surrogate", body)
+    write_surrogate_section(cfg, metrics)
     print(f"val: {val_agg}")
     print(f"holdout: {hold_agg}")
     print(f"worst-case p5 IoU@+30: {p5_iou30:.3f}")

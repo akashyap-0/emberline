@@ -6,6 +6,24 @@ real-fire detection or real-world performance. Regenerate any section with
 the command noted inside it.
 
 <!-- BEGIN intro -->
+## Contents
+
+* [System diagram](#system-diagram) — and a presentation-quality version in
+  `demo/out/pitch_assets/system_architecture.png` (all six pitch assets are
+  captioned in `PITCH_ASSETS.md`)
+* [Limitations](#limitations-read-before-believing-any-number) — read first
+* [Neural surrogate](#neural-surrogate-phase-3-retrained-in-phase-9) (Phase 3,
+  retrained in Phase 9)
+* [Wind-augmentation retraining](#wind-augmentation-retraining-phase-9)
+  (Phase 9) — before/after, regime gap closed
+* [Ensemble calibration + temperature scaling](#surrogate-ensemble-calibration--temperature-scaling-phase-10)
+  (Phase 10)
+* [Smoke detection](#smoke-detection-phase-4) (Phase 4)
+* [Hindcast harness, 6 scenarios](#hindcast-harness-phase-11-expansion-6-scenarios)
+  (Phase 11) — warning minutes gained + siting implications
+* [Stress testing](#stress-testing-phase-13) (Phase 13) — measured failure
+  modes, documented not hidden
+
 ## System diagram
 
 ```
@@ -37,7 +55,10 @@ the command noted inside it.
 ```
 
 Config: every knob in `config.yaml` (single global seed). Regeneration
-commands appear inside each section below.
+commands appear inside each section below. Round 2 (Phases 9-13) added the
+wind-rotation retraining, calibration machinery, four hindcast scenarios,
+stress tests, and the pitch assets; the build log with timings and honest
+misses is `PROGRESS.md`.
 <!-- END intro -->
 
 <!-- BEGIN limitations -->
@@ -68,45 +89,6 @@ commands appear inside each section below.
   congestion, 3 assignment rounds). All routing output is ADVISORY.
 <!-- END limitations -->
 
-<!-- BEGIN detect -->
-## Smoke detection (Phase 4)
-
-Regenerate: `python -m emberline.detect.eval`. Split by EVENT (val events
-never seen in training); thresholds: CNN 0.60 (train-selected), GBM 0.5. **All data is synthetic** — plume +
-signature models, not real sensors; collecting real burn/confounder data is
-the team's stated next step.
-
-| model | precision | recall | F1 |
-|---|---|---|---|
-| 1D-CNN (9,129 params) | 0.934 | 0.953 | 0.943 |
-| GBM baseline | 0.953 | 0.952 | 0.952 |
-
-The CNN does NOT beat the GBM baseline on val F1. With only 60 s of context the handcrafted summary features (levels, slopes, VOC/PM ratio, RH) capture most of the signal; the honest engineering call is to ship the cheaper model on-node and revisit with longer windows.
-
-Per-confounder false-positive rate on val windows (CNN / GBM):
-
-| confounder | windows | CNN FP rate | GBM FP rate |
-|---|---|---|---|
-| bbq | 96 | 0.125 | 0.083 |
-| wood_stove | 64 | 0.312 | 0.188 |
-| vehicle | 28 | 0.107 | 0.107 |
-| fog | 192 | 0.000 | 0.000 |
-| dust | 136 | 0.000 | 0.000 |
-| aerosol | 9 | 0.000 | 0.111 |
-| ambient | 540 | 0.000 | 0.000 |
-
-Ambient 24 h, fire-free, 14 confounder events across
-34548 windows: **7.33 false positives per
-node-day (CNN)**, 8.67 (GBM). Note these are single-node,
-single-window numbers — the mesh's corroboration ladder (Phase 5) is what
-turns them into siren-worthy alarms.
-
-Detection latency over 25 fresh simulated fires: median
-**36 s**, mean 86 s from plume arrival to first
-positive window (3 fires never produced a classifiable plume at any
-node — typically burning away from the network).
-<!-- END detect -->
-
 <!-- BEGIN surrogate -->
 ## Neural surrogate (Phase 3, retrained in Phase 9)
 
@@ -129,39 +111,6 @@ Gap analysis (targets were goals, not claims):
 - IoU@+30 = 0.627 misses the 0.80 aspirational target. Main error mode: autoregressive drift — small front-position errors compound over 3 steps; more training worlds and longer training (this run was CPU-budget-capped) are the obvious levers.
 - Ensemble speedup = 0.5x misses the 100x target. Context: our physics baseline is itself a heavily vectorised CA (6.8 s for 20 members x 60 min), not an operational-grade solver, so the denominator is unusually fast. Against FARSITE-class physics the surrogate's one-forward-per-10-min batched rollout would win by orders of magnitude; here it wins by batching members through one network pass.
 <!-- END surrogate -->
-
-<!-- BEGIN hindcast -->
-### Hindcast harness (Phase 11 expansion: 6 scenarios)
-
-Regenerate: `python -m emberline.foresight.hindcast scenarios/*.yaml`. Scenario
-files are **hand-authored illustrative patterns, not real fire records** (the
-file format + adapters are the path to real hindcasts). Minutes from ignition:
-
-| scenario | conditions | Tier-0 | Tier-2 cascade | first 911 report (authored) | warning minutes gained |
-|---|---|---|---|---|---|
-| dry_ridge_evening | 7 m/s, nearest node 152 m | 0.0 | 2.5 | 22.0 | **19.5** |
-| valley_night | 4 m/s, nearest node 212 m | 1.0 | — | 55.0 | **—** |
-| highwind_ridge_run | 14 m/s, nearest node 786 m | 4.5 | 7.5 | 15.0 | **7.5** |
-| stagnant_far_corner | 3 m/s, nearest node 1052 m | — | — | 65.0 | **—** |
-| town_origin_fire | 6 m/s, nearest node 453 m | 5.0 | 12.5 | 6.0 | **-6.5** |
-| degraded_mesh_ridge | 7 m/s, 2 nodes down (N0,N7), nearest node 396 m | 5.0 | — | 22.0 | **—** |
-
-A "—" means the mesh never corroborated to a cascade: the harness is thus
-also a **siting design tool** — it shows where the network layout would have
-missed, before any hardware is planted. Measured outcomes this run:
-
-* Cascades fired in 3/6 scenarios (warning minutes vs the authored 911 call: +19.5, +7.5, -6.5); their ignitions sat 152-786 m from the nearest alive node.
-* Missed entirely: **valley_night** (nearest alive node 212 m, wind 4 m/s, Tier-0 only at 1 min); **stagnant_far_corner** (nearest alive node 1052 m, wind 3 m/s, zero detections); **degraded_mesh_ridge** (nearest alive node 396 m, wind 7 m/s, 2 nodes down, Tier-0 only at 5 min).
-
-**Siting implications** (each sentence is generated from the measured rows
-above; a re-run with different outcomes rewrites or drops it):
-
-* **Low-wind fires defeat corroboration, not detection**: valley_night chirped Tier-0 at 1 min but a 4 m/s drift puts smoke on only one node's line, and the ladder (by design) refuses single-node cascades — the layout needs a second node along each low-wind drainage path, not more confidence.
-* **The ring has a hard radius**: stagnant_far_corner produced ZERO detection windows in 80 min with the nearest node 1052 m away at 3 m/s — fires outside roughly a kilometre of the perimeter in near-calm are invisible until they grow or the wind turns.
-* **Two nodes are single points of cascade**: the same ridge fire that cascaded in 2.5 min with the full mesh never cascaded at all with 2 nodes down (N0,N7) — Tier-0 still fired at 5 min, so one node smelled it and no second ever corroborated. The eastern ridge sector has no detection redundancy.
-* **In-town starts don't need the mesh to raise the alarm**: humans beat the cascade by 6.5 min in town_origin_fire; the system's value there is what follows the alarm (cones, routing, CAP draft), not detection speed.
-* **High wind compresses but keeps the margin**: at 14 m/s the cascade still landed 7.5 min before the (already fast) authored 911 call.
-<!-- END hindcast -->
 
 <!-- BEGIN wind-augmentation -->
 ### Wind-augmentation retraining (Phase 9)
@@ -234,6 +183,78 @@ cone THRESHOLD semantics change but cone SHAPES at matched percentiles do
 not; the fit/check machinery stays in `surrogate/calibration.py` for the day
 real-sensor hindcasts give it a population worth fitting to.
 <!-- END calibration -->
+
+<!-- BEGIN detect -->
+## Smoke detection (Phase 4)
+
+Regenerate: `python -m emberline.detect.eval`. Split by EVENT (val events
+never seen in training); thresholds: CNN 0.60 (train-selected), GBM 0.5. **All data is synthetic** — plume +
+signature models, not real sensors; collecting real burn/confounder data is
+the team's stated next step.
+
+| model | precision | recall | F1 |
+|---|---|---|---|
+| 1D-CNN (9,129 params) | 0.934 | 0.953 | 0.943 |
+| GBM baseline | 0.953 | 0.952 | 0.952 |
+
+The CNN does NOT beat the GBM baseline on val F1. With only 60 s of context the handcrafted summary features (levels, slopes, VOC/PM ratio, RH) capture most of the signal; the honest engineering call is to ship the cheaper model on-node and revisit with longer windows.
+
+Per-confounder false-positive rate on val windows (CNN / GBM):
+
+| confounder | windows | CNN FP rate | GBM FP rate |
+|---|---|---|---|
+| bbq | 96 | 0.125 | 0.083 |
+| wood_stove | 64 | 0.312 | 0.188 |
+| vehicle | 28 | 0.107 | 0.107 |
+| fog | 192 | 0.000 | 0.000 |
+| dust | 136 | 0.000 | 0.000 |
+| aerosol | 9 | 0.000 | 0.111 |
+| ambient | 540 | 0.000 | 0.000 |
+
+Ambient 24 h, fire-free, 14 confounder events across
+34548 windows: **7.33 false positives per
+node-day (CNN)**, 8.67 (GBM). Note these are single-node,
+single-window numbers — the mesh's corroboration ladder (Phase 5) is what
+turns them into siren-worthy alarms.
+
+Detection latency over 25 fresh simulated fires: median
+**36 s**, mean 86 s from plume arrival to first
+positive window (3 fires never produced a classifiable plume at any
+node — typically burning away from the network).
+<!-- END detect -->
+
+<!-- BEGIN hindcast -->
+### Hindcast harness (Phase 11 expansion: 6 scenarios)
+
+Regenerate: `python -m emberline.foresight.hindcast scenarios/*.yaml`. Scenario
+files are **hand-authored illustrative patterns, not real fire records** (the
+file format + adapters are the path to real hindcasts). Minutes from ignition:
+
+| scenario | conditions | Tier-0 | Tier-2 cascade | first 911 report (authored) | warning minutes gained |
+|---|---|---|---|---|---|
+| dry_ridge_evening | 7 m/s, nearest node 152 m | 0.0 | 2.5 | 22.0 | **19.5** |
+| valley_night | 4 m/s, nearest node 212 m | 1.0 | — | 55.0 | **—** |
+| highwind_ridge_run | 14 m/s, nearest node 786 m | 4.5 | 7.5 | 15.0 | **7.5** |
+| stagnant_far_corner | 3 m/s, nearest node 1052 m | — | — | 65.0 | **—** |
+| town_origin_fire | 6 m/s, nearest node 453 m | 5.0 | 12.5 | 6.0 | **-6.5** |
+| degraded_mesh_ridge | 7 m/s, 2 nodes down (N0,N7), nearest node 396 m | 5.0 | — | 22.0 | **—** |
+
+A "—" means the mesh never corroborated to a cascade: the harness is thus
+also a **siting design tool** — it shows where the network layout would have
+missed, before any hardware is planted. Measured outcomes this run:
+
+* Cascades fired in 3/6 scenarios (warning minutes vs the authored 911 call: +19.5, +7.5, -6.5); their ignitions sat 152-786 m from the nearest alive node.
+* Missed entirely: **valley_night** (nearest alive node 212 m, wind 4 m/s, Tier-0 only at 1 min); **stagnant_far_corner** (nearest alive node 1052 m, wind 3 m/s, zero detections); **degraded_mesh_ridge** (nearest alive node 396 m, wind 7 m/s, 2 nodes down, Tier-0 only at 5 min).
+
+**Siting implications** (each sentence is generated from the measured rows
+above; a re-run with different outcomes rewrites or drops it):
+
+* **Low-wind fires defeat corroboration, not detection**: valley_night chirped Tier-0 at 1 min but a 4 m/s drift puts smoke on only one node's line, and the ladder (by design) refuses single-node cascades — the layout needs a second node along each low-wind drainage path, not more confidence.
+* **The ring has a hard radius**: stagnant_far_corner produced ZERO detection windows in 80 min with the nearest node 1052 m away at 3 m/s — fires outside roughly a kilometre of the perimeter in near-calm are invisible until they grow or the wind turns.
+* **Two nodes are single points of cascade**: the same ridge fire that cascaded in 2.5 min with the full mesh never cascaded at all with 2 nodes down (N0,N7) — Tier-0 still fired at 5 min, so one node smelled it and no second ever corroborated. The eastern ridge sector has no detection redundancy.
+* **In-town starts don't need the mesh to raise the alarm**: humans beat the cascade by 6.5 min in town_origin_fire; the system's value there is what follows the alarm (cones, routing, CAP draft), not detection speed.
+* **High wind compresses but keeps the margin**: at 14 m/s the cascade still landed 7.5 min before the (already fast) authored 911 call.
+<!-- END hindcast -->
 
 <!-- BEGIN stress -->
 ## Stress testing (Phase 13)
