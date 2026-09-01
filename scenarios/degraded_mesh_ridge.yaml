@@ -1,0 +1,15 @@
+# HAND-AUTHORED illustrative hindcast scenario (NOT a real fire record).
+name: degraded_mesh_ridge
+description: Same evening ridge pattern as dry_ridge_evening, but the two nodes
+  best placed to smell this fire (N0 on the ridge, N7 on the NE arc) are dead
+  before ignition - vandalism, dead batteries, whatever. Measures how much
+  warning the thinned mesh gives up.
+world_id: 0
+ignition_cell: [154, 138]     # same ridge cell as dry_ridge_evening
+start_hour_local: 19.5
+report_911_min: 22.0          # same authored human timeline as dry_ridge_evening
+nodes_down: [N0, N7]          # dead at scenario start (before head election)
+wind:
+  speed_ms: 7.0
+  dir_deg: 240.0
+max_minutes: 60

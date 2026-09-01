@@ -1,0 +1,14 @@
+# HAND-AUTHORED illustrative hindcast scenario (NOT a real fire record).
+name: town_origin_fire
+description: Structure fire igniting INSIDE the town grid (urban fuel) rather
+  than approaching from wildland. Residents see it almost immediately, so the
+  911 report is very early - tests whether mesh corroboration adds any margin
+  when the fire starts amid the sensors.
+world_id: 0
+ignition_cell: [150, 80]      # urban cell inside the town district, 450 m from a node
+start_hour_local: 17.0
+report_911_min: 6.0           # hand-authored: flames visible from the street
+wind:
+  speed_ms: 6.0
+  dir_deg: 225.0
+max_minutes: 45
