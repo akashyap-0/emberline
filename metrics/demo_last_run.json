@@ -1,0 +1,26 @@
+{
+  "_generated_utc": "2026-09-01T04:09:48+00:00",
+  "backend": "surrogate",
+  "cascade_max_hops": 1,
+  "cascade_median_latency_s": 0.4,
+  "channel_utilization": 0.0021,
+  "forecast_wall_s": [
+    28.23,
+    24.18
+  ],
+  "ignition_estimate_error_m": 248,
+  "ignition_sim_min": 8,
+  "kill_sim_s_after_ignition": 390,
+  "killed_node": "N3",
+  "mesh_collisions": 0,
+  "mesh_tx_total": 851,
+  "replan_moved_access_points": 0,
+  "scenario": "ridgeline",
+  "selfheal_sim_s_after_ignition": 570,
+  "tier0_sim_s_after_ignition": 30,
+  "tier1_sim_s_after_ignition": 120,
+  "tier2_sim_s_after_ignition": 300,
+  "truth_burned_ha_at_end": 145.0,
+  "windshift_deg": 40.0,
+  "windshift_sim_s_after_ignition": 870
+}

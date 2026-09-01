@@ -1,5 +1,33 @@
 # Emberline build log
 
+## 2026-09-01 ~06:15 UTC — ROUND 2, Phase 12: pitch-ready static assets ✅
+
+Built `emberline/demo/pitch_assets.py` (`python -m emberline.demo.pitch_assets
+[--only NAME]`) rendering six 1920×1080 PNGs to `demo/out/pitch_assets/`
+(committed — whitelisted in .gitignore). Every number is LOADED from real-run
+artifacts; missing sources refuse to render and print the regen command.
+Data plumbing: the demo now dumps `demo/out/last_run_artifacts.{npz,json}`
+(cones before/after shift, routing masks, plans, fire-state snapshots at each
+forecast, node states, mesh log, wind vectors) and records kill/self-heal/
+wind-shift timestamps in `metrics/demo_last_run.json`; verify.sh's smoke uses
+the canonical `--kill-node N3 --wind-shift 40` so any verify regenerates
+consistent artifacts.
+
+Assets (all from the instrumented ridgeline run: Tier-0 30 s, Tier-1 120 s,
+Tier-2 300 s, N3 killed t+390 s, self-heal t+570 s, wind shift t+870 s):
+1. system_architecture — pipeline with live metrics (params from best.pt,
+   F1s, IoU@+30 0.63/0.66).
+2. cone_evacuation_before_after — +60 cone, live front, per-exit routes and
+   loads across the +40° shift (6→0 road edges cut, stranded access point
+   recovered).
+3. mesh_topology — RSSI links, health-sized nodes, N3 kill + measured
+   self-heal note, cluster head N0.
+4. detection_confusion — per-confounder FP bars, CNN vs GBM.
+5. calibration_before_after — v1 raw (0.148) vs shipped v2 raw (0.060),
+   fitted-T transfer failure noted.
+6. warning_timeline — the measured event timeline.
+PITCH_ASSETS.md: one-line caption + exact regen command per asset.
+
 ## 2026-09-01 ~05:50 UTC — ROUND 2, Phase 10: calibration + temperature scaling ✅
 
 Built: temperature scaling in `surrogate/calibration.py` — fit-then-verify on
