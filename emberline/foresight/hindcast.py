@@ -52,6 +52,12 @@ def replay(cfg: dict, scen: dict) -> dict:
     snodes = place_nodes(world, int(cfg["sensors"]["n_nodes"]), rng_for(cfg, "demo-nodes"))
     mesh = MeshSim(world, [MeshNode(s.node_id, s.r, s.c) for s in snodes],
                    cfg["mesh"], rng_for(cfg, "hindcast-mesh"))
+    # Nodes dead BEFORE the scenario starts (sparse/degraded-mesh cases): killed
+    # before head election, as a mesh that has been running would have done.
+    nodes_down = [str(n) for n in scen.get("nodes_down", [])]
+    for nid in nodes_down:
+        if nid in mesh.nodes:
+            mesh.kill_node(nid)
     proto = MeshProtocol(mesh, cfg["mesh"])
 
     state = torch.load(cnn_ckpt_path(cfg), weights_only=False)
@@ -117,9 +123,15 @@ def replay(cfg: dict, scen: dict) -> dict:
 
     tiers = {t: round(ms / 60000.0, 1) for t, ms in proto.tier_times_ms.items()}
     r911 = float(scen["report_911_min"])
+    nearest_alive_m = min(float(np.hypot(n.r - ig_r, n.c - ig_c)) * world.cell_m
+                          for n in mesh.nodes.values() if n.alive)
     out = {"name": scen["name"], "report_911_min": r911,
            "tier0_min": tiers.get(0), "tier1_min": tiers.get(1),
-           "tier2_min": tiers.get(2)}
+           "tier2_min": tiers.get(2),
+           "wind_ms": float(w.get("speed_ms", 8.0)),
+           "nodes_down": nodes_down,
+           "max_minutes": max_min,
+           "nearest_alive_node_m": round(nearest_alive_m)}
     # None = the mesh never corroborated to a cascade: an honest miss, and
     # exactly the siting feedback a hindcast harness is for.
     out["warning_minutes_gained"] = (round(r911 - tiers[2], 1) if 2 in tiers else None)
@@ -141,23 +153,105 @@ def main() -> None:
               f"tier2 {fmt(r['tier2_min'])} min, 911 at {r['report_911_min']} min -> "
               f"warning gained {fmt(r['warning_minutes_gained'])} min")
     save_metrics("hindcast", {"scenarios": rows})
-    table = "\n".join(f"| {r['name']} | {fmt(r['tier0_min'])} | {fmt(r['tier2_min'])} | "
-                      f"{r['report_911_min']} | **{fmt(r['warning_minutes_gained'])}** |"
+
+    def conditions(r: dict) -> str:
+        parts = [f"{r['wind_ms']:.0f} m/s"]
+        if r["nodes_down"]:
+            parts.append(f"{len(r['nodes_down'])} nodes down ({','.join(r['nodes_down'])})")
+        parts.append(f"nearest node {r['nearest_alive_node_m']:.0f} m")
+        return ", ".join(parts)
+
+    table = "\n".join(f"| {r['name']} | {conditions(r)} | {fmt(r['tier0_min'])} | "
+                      f"{fmt(r['tier2_min'])} | {r['report_911_min']} | "
+                      f"**{fmt(r['warning_minutes_gained'])}** |"
                       for r in rows)
+
+    hits = [r for r in rows if r["warning_minutes_gained"] is not None]
+    misses = [r for r in rows if r["warning_minutes_gained"] is None]
+    facts = []
+    if hits:
+        gains = ", ".join(f"{h['warning_minutes_gained']:+.1f}" for h in hits)
+        facts.append(
+            f"Cascades fired in {len(hits)}/{len(rows)} scenarios (warning minutes "
+            f"vs the authored 911 call: {gains}); their ignitions sat "
+            f"{min(h['nearest_alive_node_m'] for h in hits):.0f}-"
+            f"{max(h['nearest_alive_node_m'] for h in hits):.0f} m from the nearest "
+            "alive node.")
+    if misses:
+        facts.append(
+            "Missed entirely: " + "; ".join(
+                f"**{m['name']}** (nearest alive node {m['nearest_alive_node_m']:.0f} m, "
+                f"wind {m['wind_ms']:.0f} m/s"
+                + (f", {len(m['nodes_down'])} nodes down" if m["nodes_down"] else "")
+                + (f", Tier-0 only at {m['tier0_min']:.0f} min" if m["tier0_min"] is not None
+                   else ", zero detections")
+                + ")" for m in misses) + ".")
+    facts_text = "\n".join(f"* {f}" for f in facts)
+
+    # Siting implications: sentences are BUILT from the measured rows above, so
+    # a re-run with different outcomes rewrites or drops them — the text can
+    # never disagree with the table it interprets.
+    by = {r["name"]: r for r in rows}
+    imp = []
+    vn, sf = by.get("valley_night"), by.get("stagnant_far_corner")
+    dr, dg = by.get("dry_ridge_evening"), by.get("degraded_mesh_ridge")
+    to, hw = by.get("town_origin_fire"), by.get("highwind_ridge_run")
+    if vn and vn["tier0_min"] is not None and vn["tier2_min"] is None:
+        imp.append(
+            f"**Low-wind fires defeat corroboration, not detection**: valley_night "
+            f"chirped Tier-0 at {vn['tier0_min']:.0f} min but a {vn['wind_ms']:.0f} m/s "
+            "drift puts smoke on only one node's line, and the ladder (by design) "
+            "refuses single-node cascades — the layout needs a second node along "
+            "each low-wind drainage path, not more confidence.")
+    if sf and sf["tier0_min"] is None:
+        imp.append(
+            f"**The ring has a hard radius**: stagnant_far_corner produced ZERO "
+            f"detection windows in {sf['max_minutes']:.0f} min with the nearest node "
+            f"{sf['nearest_alive_node_m']:.0f} m away at {sf['wind_ms']:.0f} m/s — "
+            "fires outside roughly a kilometre of the perimeter in near-calm are "
+            "invisible until they grow or the wind turns.")
+    if dr and dg and dr["tier2_min"] is not None and dg["tier2_min"] is None:
+        imp.append(
+            f"**Two nodes are single points of cascade**: the same ridge fire that "
+            f"cascaded in {dr['tier2_min']:.1f} min with the full mesh never cascaded "
+            f"at all with {len(dg['nodes_down'])} nodes down "
+            f"({','.join(dg['nodes_down'])}) — Tier-0 still fired at "
+            f"{dg['tier0_min']:.0f} min, so one node smelled it and no second ever "
+            "corroborated. The eastern ridge sector has no detection redundancy.")
+    if to and to["warning_minutes_gained"] is not None and to["warning_minutes_gained"] < 0:
+        imp.append(
+            f"**In-town starts don't need the mesh to raise the alarm**: humans beat "
+            f"the cascade by {-to['warning_minutes_gained']:.1f} min in "
+            "town_origin_fire; the system's value there is what follows the alarm "
+            "(cones, routing, CAP draft), not detection speed.")
+    if hw and hw["warning_minutes_gained"] is not None and hw["warning_minutes_gained"] > 0:
+        imp.append(
+            f"**High wind compresses but keeps the margin**: at {hw['wind_ms']:.0f} m/s "
+            f"the cascade still landed {hw['warning_minutes_gained']:.1f} min before "
+            "the (already fast) authored 911 call.")
+    imp_text = "\n".join(f"* {s}" for s in imp)
+
     update_section("hindcast", f"""
-### Hindcast harness (stretch)
+### Hindcast harness (Phase 11 expansion: 6 scenarios)
 
 Regenerate: `python -m emberline.foresight.hindcast scenarios/*.yaml`. Scenario
 files are **hand-authored illustrative patterns, not real fire records** (the
 file format + adapters are the path to real hindcasts). Minutes from ignition:
 
-| scenario | Tier-0 | Tier-2 cascade | first 911 report (authored) | warning minutes gained |
-|---|---|---|---|---|
+| scenario | conditions | Tier-0 | Tier-2 cascade | first 911 report (authored) | warning minutes gained |
+|---|---|---|---|---|---|
 {table}
 
 A "—" means the mesh never corroborated to a cascade: the harness is thus
 also a **siting design tool** — it shows where the network layout would have
-missed, before any hardware is planted.
+missed, before any hardware is planted. Measured outcomes this run:
+
+{facts_text}
+
+**Siting implications** (each sentence is generated from the measured rows
+above; a re-run with different outcomes rewrites or drops it):
+
+{imp_text}
 """)
     print("wrote metrics/hindcast.json and REPORT.md section")
 

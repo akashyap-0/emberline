@@ -1,0 +1,13 @@
+# HAND-AUTHORED illustrative hindcast scenario (NOT a real fire record).
+name: stagnant_far_corner
+description: Near-calm night fire smouldering in the far NE timber, >1 km from
+  every node, weak drift AWAY from the network - authored as a mesh-miss probe
+  (like valley_night) to map the 12-node layout's blind sector.
+world_id: 0
+ignition_cell: [30, 200]      # timber, 1050 m from the nearest node
+start_hour_local: 3.0
+report_911_min: 65.0          # nobody awake, no glow visible from town
+wind:
+  speed_ms: 3.0
+  dir_deg: 250.0              # gentle drift toward the empty NE map edge
+max_minutes: 80
