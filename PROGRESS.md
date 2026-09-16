@@ -1,5 +1,168 @@
 # Emberline build log
 
+## 2026-09-01 ~06:45 UTC — ROUND 2 COMPLETE (Phases 9-14) ✅
+
+Environment: fresh cloud container (4 cores, Linux). Started by regenerating
+the gitignored training data from seed (byte-deterministic, 16,841 pairs) and
+confirming `make verify` green on the committed state before touching code.
+
+Headline measured results (details + caveats in each phase entry below and in
+REPORT.md — quoted-vs-here differences are cross-platform torch variance,
+both records preserved):
+- **Phase 9**: joint world+wind rotation augmentation; held-out wind-regime
+  IoU@+30 **0.411 → 0.657** (val 0.655 → 0.627): regime gap CLOSED
+  (0.244 → −0.030). Honest cost: val IoU@+60 0.621 → 0.507. v1 checkpoint +
+  metrics archived; nothing overwritten.
+- **Phase 10**: temperature scaling (fit-then-verify on fresh disjoint
+  worlds). Shipped-config ECE **0.113 (quoted) / 0.148 (v1 here) → 0.060 (v2
+  raw)** — the retraining itself did the calibrating; the fitted T=2.37 fails
+  val-population transfer and does NOT ship (documented).
+- **Phase 11**: 6 hindcast scenarios; gains +19.5/+7.5 min, an honest −6.5
+  (in-town start), and 3 misses that map the layout's blind spots (siting
+  implications generated from measured rows).
+- **Phase 12**: six 1920×1080 pitch PNGs, every number from real runs,
+  committed; PITCH_ASSETS.md has captions + regen commands.
+- **Phase 13**: 6 stress tests passing; two real limitations documented and
+  pinned (post-cascade deafness to a second fire; all-degraded mesh can never
+  cascade).
+- **Phase 14**: REPORT.md TOC + section reorder; final `make verify` green
+  (54 tests + end-to-end smoke).
+
+Round-2 rules kept: no Phase 1-8 regressions (verify green at every commit),
+no fabricated numbers (every REPORT figure regenerates from a command), old
+numbers preserved beside new ones, adapters/ untouched, no UI.
+
+## 2026-09-01 ~06:30 UTC — ROUND 2, Phase 13: edge-case hardening ✅
+
+6 new stress tests (tests/test_stress.py), all passing; REPORT.md gains a
+"Stress testing" section that reports the measured outcomes INCLUDING the two
+real limitations discovered while writing them (documented + pinned by tests,
+deliberately not patched this round):
+- (a) Two simultaneous ignitions: physics runs two independent fronts fine;
+  the protocol corroborates BOTH fires into one incident and — the sharper
+  finding — **post-cascade storm suppression drops later DETECT packets at
+  the source**, so a second fire reported after the first cascade never
+  reaches the head (Foresight is never pointed at it).
+- (b) 7/12 nodes killed mid-scenario incl. the cluster head: self-heal
+  re-elects, the 5-node rump still cascades, and delivery reaches every
+  survivor.
+- (c) In-town urban ignition: spreads (slower than wildland, as designed);
+  ties to the town_origin_fire hindcast (−6.5 min vs 911).
+- (d) All-degraded mesh: measured to be STRICTER than the docs implied — the
+  distinct-origin gate (weight×conf ≥ 0.3) means floor-weighted (0.2) nodes
+  can NEVER corroborate to Tier 1/2 at any count; chirps only. Flip side
+  (siren-deaf degraded fleet) documented as the cost of health gating.
+
+## 2026-09-01 ~06:15 UTC — ROUND 2, Phase 12: pitch-ready static assets ✅
+
+Built `emberline/demo/pitch_assets.py` (`python -m emberline.demo.pitch_assets
+[--only NAME]`) rendering six 1920×1080 PNGs to `demo/out/pitch_assets/`
+(committed — whitelisted in .gitignore). Every number is LOADED from real-run
+artifacts; missing sources refuse to render and print the regen command.
+Data plumbing: the demo now dumps `demo/out/last_run_artifacts.{npz,json}`
+(cones before/after shift, routing masks, plans, fire-state snapshots at each
+forecast, node states, mesh log, wind vectors) and records kill/self-heal/
+wind-shift timestamps in `metrics/demo_last_run.json`; verify.sh's smoke uses
+the canonical `--kill-node N3 --wind-shift 40` so any verify regenerates
+consistent artifacts.
+
+Assets (all from the instrumented ridgeline run: Tier-0 30 s, Tier-1 120 s,
+Tier-2 300 s, N3 killed t+390 s, self-heal t+570 s, wind shift t+870 s):
+1. system_architecture — pipeline with live metrics (params from best.pt,
+   F1s, IoU@+30 0.63/0.66).
+2. cone_evacuation_before_after — +60 cone, live front, per-exit routes and
+   loads across the +40° shift (6→0 road edges cut, stranded access point
+   recovered).
+3. mesh_topology — RSSI links, health-sized nodes, N3 kill + measured
+   self-heal note, cluster head N0.
+4. detection_confusion — per-confounder FP bars, CNN vs GBM.
+5. calibration_before_after — v1 raw (0.148) vs shipped v2 raw (0.060),
+   fitted-T transfer failure noted.
+6. warning_timeline — the measured event timeline.
+PITCH_ASSETS.md: one-line caption + exact regen command per asset.
+
+## 2026-09-01 ~05:50 UTC — ROUND 2, Phase 10: calibration + temperature scaling ✅
+
+Built: temperature scaling in `surrogate/calibration.py` — fit-then-verify on
+FRESH worlds (fit 161-168, DISJOINT check 169-172; both outside every
+train/val/holdout split), NLL over interior (unsaturated) ensemble
+frequencies, saturated 0/1 frequencies pass through unscaled; optional
+`foresight.temperature` hook (default null). 4 unit tests.
+
+Two naive fit objectives failed measurably and are documented in code+REPORT:
+plain NLL (saturation-dominated; T=2.59 worsened val ECE 0.060→0.229) and
+direct binned-ECE (degenerate base-rate collapse; T→grid edge, val 0.330).
+
+Measured (12 val fires, same rng stream as the original ECE):
+- Headline shipped-config before/after: **ECE 0.113 (v1, quoted) → 0.060 (v2
+  raw, this machine)** — the Phase-9 retraining itself did most of the
+  calibrating. v1 re-measured here: raw 0.148.
+- Honest finding: the cal-world-fitted T=2.37 passes its disjoint-world check
+  (0.290→0.267) but does NOT transfer to the val population (0.060→0.196), so
+  no scaling ships (`foresight.temperature: null`); population disagreement +
+  small-sample caveats documented in REPORT.md. v1's candidate (T=0.83) was
+  rejected by its check worlds.
+- `demo/out/calibration_v2.png` (committed) carries both curves.
+
+## 2026-09-01 ~05:05 UTC — ROUND 2, Phase 11: hindcast scenario expansion ✅
+
+4 new hand-authored scenarios (all world 0, deterministic replays):
+- `highwind_ridge_run` — 14 m/s SE approach, timber, 790 m from nearest node.
+- `stagnant_far_corner` — 3 m/s night smoulder >1 km NE of the ring.
+- `town_origin_fire` — urban-cell ignition INSIDE the town district.
+- `degraded_mesh_ridge` — dry_ridge_evening's fire with N0+N7 dead at start
+  (new harness support: `nodes_down:` kills nodes before head election).
+
+Measured (all 6 in REPORT.md, warning-minutes-gained vs authored 911):
+dry_ridge_evening **+19.5** (reproduces the original stretch number exactly),
+highwind_ridge_run **+7.5**, town_origin_fire **−6.5** (humans beat the mesh
+for in-town starts — honest negative), valley_night **—** (Tier-0 at 1 min,
+never corroborates), stagnant_far_corner **—** (ZERO detections in 80 min),
+degraded_mesh_ridge **—** (Tier-0 at 5 min, cascade never fires with the two
+best-placed nodes dead). Harness now emits a **siting implications** block
+generated from the measured rows (single-line-of-smell corroboration failure,
+~1 km hard radius, no eastern-ridge redundancy, in-town value is post-alarm
+products); metrics in `metrics/hindcast.json`.
+
+## 2026-09-01 ~04:20 UTC — ROUND 2, Phase 9: wind-augmentation retraining ✅
+
+Environment: fresh cloud container (4 cores). Regenerated the full training
+set from seed — byte-deterministic: exactly 16,841 pairs again. Re-measured
+the archived v1 checkpoint HERE before touching anything: val IoU@+30 0.655 /
+holdout-regime 0.411 (vs 0.681 / 0.368 quoted from the laptop build — torch
+CPU kernel differences compound over autoregressive steps; both records kept
+in REPORT.md, nothing overwritten).
+
+Built:
+- `surrogate/datasets.py`: joint world+wind rotation augmentation — every
+  training crop sampled through a rotated coordinate grid (order-0 for masks +
+  fuel one-hot so they stay binary/one-hot, bilinear for elevation), wind
+  vector rotated by the SAME matrix; `rotate_keep_frac` leaves 25% of samples
+  on the native grid. Config: `surrogate.train.rotate_augment`.
+- `surrogate/train.py`: `--init-from` (warm-start weights, fresh optimizer —
+  the fine-tune path) and `--lr` override; resume semantics unchanged.
+- 2 new tests: exact-90° world/wind consistency (rotated spread stays aligned
+  with rotated wind, speed preserved) + rotated-item validity (one-hot, wind
+  planes constant, monotone targets).
+- `surrogate/eval.py --compare-baseline`: regenerates the Phase-9
+  before/after REPORT section from metrics JSONs.
+
+Run: fine-tune from best_v1.pt, lr 1e-3, early-stopped at step 2800 (best
+crop val IoU@+10 0.9448 at step 1600, v1 was 0.9405), ~35 min wall on 4 cores.
+
+Measured (64 fires/split, same eval code + RNG as v1 baseline):
+- held-out wind regime IoU@+30: 0.411 → **0.657**; val 0.655 → 0.627;
+  val-holdout gap 0.244 → **−0.030 — the regime gap is CLOSED.**
+- val IoU@+10 0.551 → 0.678; worst-case p5 IoU@+30 0.248 → 0.369;
+  holdout arrival MAE 9.4 → 3.0 min.
+- Honest cost: val IoU@+60 0.621 → 0.507 (capacity spread across
+  orientations; +60 rollout pays most). Documented in REPORT.md.
+
+v1 checkpoint archived as `data/checkpoints/best_v1.pt` (committed) with its
+metrics in `metrics/surrogate_v1.json`; old numbers remain reproducible.
+`make verify` green (53 tests; demo smoke now uses the canonical
+`--wind-shift 40` acceptance flags).
+
 ## 2026-08-30 05:40 UTC — Phase 1: World generation ✅
 
 Built:

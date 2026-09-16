@@ -1,0 +1,80 @@
+{
+  "_generated_utc": "2026-09-01T04:04:58+00:00",
+  "scenarios": [
+    {
+      "max_minutes": 45,
+      "name": "dry_ridge_evening",
+      "nearest_alive_node_m": 152,
+      "nodes_down": [],
+      "report_911_min": 22.0,
+      "tier0_min": 0.0,
+      "tier1_min": 1.0,
+      "tier2_min": 2.5,
+      "warning_minutes_gained": 19.5,
+      "wind_ms": 7.0
+    },
+    {
+      "max_minutes": 70,
+      "name": "valley_night",
+      "nearest_alive_node_m": 212,
+      "nodes_down": [],
+      "report_911_min": 55.0,
+      "tier0_min": 1.0,
+      "tier1_min": 1.5,
+      "tier2_min": null,
+      "warning_minutes_gained": null,
+      "wind_ms": 4.0
+    },
+    {
+      "max_minutes": 40,
+      "name": "highwind_ridge_run",
+      "nearest_alive_node_m": 786,
+      "nodes_down": [],
+      "report_911_min": 15.0,
+      "tier0_min": 4.5,
+      "tier1_min": null,
+      "tier2_min": 7.5,
+      "warning_minutes_gained": 7.5,
+      "wind_ms": 14.0
+    },
+    {
+      "max_minutes": 80,
+      "name": "stagnant_far_corner",
+      "nearest_alive_node_m": 1052,
+      "nodes_down": [],
+      "report_911_min": 65.0,
+      "tier0_min": null,
+      "tier1_min": null,
+      "tier2_min": null,
+      "warning_minutes_gained": null,
+      "wind_ms": 3.0
+    },
+    {
+      "max_minutes": 45,
+      "name": "town_origin_fire",
+      "nearest_alive_node_m": 453,
+      "nodes_down": [],
+      "report_911_min": 6.0,
+      "tier0_min": 5.0,
+      "tier1_min": 8.0,
+      "tier2_min": 12.5,
+      "warning_minutes_gained": -6.5,
+      "wind_ms": 6.0
+    },
+    {
+      "max_minutes": 60,
+      "name": "degraded_mesh_ridge",
+      "nearest_alive_node_m": 396,
+      "nodes_down": [
+        "N0",
+        "N7"
+      ],
+      "report_911_min": 22.0,
+      "tier0_min": 5.0,
+      "tier1_min": 8.0,
+      "tier2_min": null,
+      "warning_minutes_gained": null,
+      "wind_ms": 7.0
+    }
+  ]
+}

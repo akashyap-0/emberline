@@ -124,5 +124,15 @@ class Foresight:
                                        t0_s=t0_s)
         else:
             res = run_ensemble(self.world, ignition, horizons, members, rng)
+        # Optional Phase-10 temperature scaling of ensemble burn probabilities
+        # (fit by emberline.surrogate.calibration; off by default so cone
+        # threshold semantics only change when explicitly configured).
+        temp = f.get("temperature")
+        if temp:
+            from ..surrogate.calibration import apply_temperature
+
+            res = EnsembleResult(horizons_min=res.horizons_min,
+                                 prob=apply_temperature(res.prob, float(temp), members),
+                                 n_members=res.n_members)
         return Cone(result=res, thresholds=[float(t) for t in f["cone_thresholds"]],
                     margin_cells=int(f["cone_margin_cells"]))
