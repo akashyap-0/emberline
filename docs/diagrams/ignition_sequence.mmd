@@ -1,0 +1,38 @@
+%% Emberline diagram: ignition_sequence
+%% The identical block is inline in docs/01_ARCHITECTURE.md; keep both in sync.
+%% Renders natively on GitHub, or at https://mermaid.live
+sequenceDiagram
+    autonumber
+    participant FS as firesim.FireSim (truth)
+    participant PL as sensors.plume
+    participant N0 as node N0 (sensors + detect.SmokeCNN)
+    participant N7 as node N7 (sensors + detect.SmokeCNN)
+    participant MS as mesh.MeshSim (radio DES)
+    participant HD as MeshProtocol cluster head (N0)
+    participant FO as foresight (twin + surrogate)
+    participant OB as outbox/ (human approval)
+
+    FS->>PL: burning cells at t (30-s step)
+    PL->>N0: PM2.5 contribution (Gaussian plume, downwind only)
+    PL->>N7: PM2.5 contribution
+    N0->>N0: 60-s window = baseline + plume + noise → P(fire)
+    Note over N0: t+30 s  P(fire) ≥ 0.60 → Tier-0 chirp (local)
+    N0->>MS: DETECT{conf, weight=health, bearing} (backoff, CAD, duty budget)
+    MS->>HD: deliver (head hears itself directly)
+    HD->>HD: score = Σ weight×conf over 120-s window
+    Note over HD: t+90 s  sustained single healthy node ≥ 0.85 → Tier 1
+    HD->>MS: ALERT{tier 1, mean bearing} flood
+    MS-->>N7: voice alert with bearing (hop 1)
+    N7->>N7: plume arrives, P(fire) ≥ 0.60
+    N7->>MS: DETECT
+    MS->>HD: deliver
+    Note over HD: t+270 s  2 distinct origins, score 1.94 ≥ 1.60 → Tier 2
+    HD->>MS: ALERT{tier 2} flood; relays suppress lower tiers
+    MS-->>N0: FULL SIREN CASCADE
+    MS-->>N7: FULL SIREN CASCADE
+    HD->>FO: incident detections (positions + bearings)
+    FO->>FO: estimate_ignition (least squares) → 248 m error
+    FO->>FO: SurrogateEngine.ensemble 30 members → P(burn) +10/+30/+60
+    FO->>FO: plan_evacuation on routing_mask(+30 min, P≥0.30) — ADVISORY
+    FO->>OB: draft_cap_alert(status="Exercise", polygon = union cone)
+    Note over OB: nothing transmits; a human must approve (county path NOT BUILT)

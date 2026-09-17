@@ -26,7 +26,7 @@ the **software simulation of that whole chain**, tested and measured.
 ```bash
 python -m pip install -e .
 
-# the whole MVP in one command: verify (lint + 54 tests + smoke),
+# the whole MVP in one command: verify (lint + 61 tests + smoke),
 # canonical demo, pitch assets, and a dated summary in docs/MVP_RUN.md
 make mvp                      # or: python -m emberline.mvp
 
@@ -64,7 +64,7 @@ runs the same steps and falls back to `bash verify.sh`.
 | Detection latency from plume arrival, median | 36 s |
 | Canonical demo: ignition → Tier-0 / Tier-1 / Tier-2 cascade | 30 s / 120 s / 300 s |
 | Hindcast warning minutes gained vs authored 911 call, 6 scenarios | +19.5, +7.5, −6.5, three misses |
-| Test suite | 54 tests, passing |
+| Test suite | 61 tests (54 original + 7 for the MVP entrypoint), passing |
 
 Full tables, gap analyses and regeneration commands:
 [docs/03_RESULTS.md](docs/03_RESULTS.md), source of truth [REPORT.md](REPORT.md).
@@ -103,7 +103,7 @@ emberline/
   adapters/        STUBS for real data (USGS 3DEP, LANDFIRE, OSM): interfaces only
   mvp.py           one-command MVP run -> docs/MVP_RUN.md
   report.py        metrics JSON store + REPORT.md section writer
-tests/             54 pytest tests (+ test_mvp.py)
+tests/             61 pytest tests (54 original + 7 in test_mvp.py)
 scenarios/         6 hand-authored hindcast scenarios (not fire records)
 metrics/           JSON produced by the eval CLIs; read by the demo scoreboard
 data/checkpoints/  committed surrogate + detector checkpoints

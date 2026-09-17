@@ -30,7 +30,7 @@ flowchart LR
         C1 --> C2 --> C3
         C4
     end
-    SIM["This repo today:<br/>full simulation, 54 tests,<br/>REPORT.md numbers"]:::done
+    SIM["This repo today:<br/>full simulation, 61 tests,<br/>REPORT.md numbers"]:::done
     SIM --> NOW --> NEXT --> LATER
 
     classDef done fill:#e8f1e4,stroke:#2e5d34,color:#111;
@@ -44,7 +44,7 @@ Source: [diagrams/roadmap.mmd](diagrams/roadmap.mmd).
 |---|---|
 | End-to-end simulation of sense → classify → mesh → Foresight → CAP draft | `python -m emberline.demo --scenario ridgeline --fast --kill-node N3 --wind-shift 40`; `demo/out/demo.gif` |
 | Measured results with regen commands | [REPORT.md](../REPORT.md), `metrics/*.json` |
-| 54 passing tests including stress tests | `bash verify.sh` |
+| 61 passing tests including stress tests (54 original + 7 MVP) | `bash verify.sh` |
 | Six pitch figures rendered only from run artifacts | `demo/out/pitch_assets/*.png`, [PITCH_ASSETS.md](../PITCH_ASSETS.md) |
 | One-command MVP run and dated summary | `make mvp` → [MVP_RUN.md](MVP_RUN.md) |
 | This documentation set | `docs/` |

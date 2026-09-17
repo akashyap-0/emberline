@@ -1,0 +1,35 @@
+%% Emberline diagram: system
+%% The identical block is inline in docs/00_OVERVIEW.md; keep both in sync.
+%% Renders natively on GitHub, or at https://mermaid.live
+flowchart LR
+    subgraph SENSE["1. Sense"]
+        HW["Physical node<br/>ESP32-S3 + BME680 + PMS5003<br/>(NOT BUILT)"]:::planned
+        VS["Virtual sensors<br/>emberline/sensors<br/>plume + confounders + noise"]:::built
+    end
+    subgraph CLASSIFY["2. Classify on node"]
+        DET["60-s window classifier<br/>emberline/detect<br/>1D-CNN 9,129 params vs GBM"]:::built
+    end
+    subgraph MESH["3. Escalate over mesh"]
+        RADIO["LoRa radios, solar, siren<br/>(NOT BUILT)"]:::planned
+        DES["Discrete-event mesh sim<br/>emberline/mesh<br/>Tier 0 chirp → Tier 1 voice → Tier 2 cascade"]:::built
+    end
+    subgraph FORESIGHT["4. Foresight"]
+        TWIN["Synthetic twin<br/>emberline/worldgen"]:::built
+        SUR["Neural surrogate ensemble<br/>emberline/surrogate<br/>cones +10/+30/+60"]:::built
+        ROUTE["Capacity-aware routing<br/>emberline/foresight/routing<br/>ADVISORY"]:::built
+        CAP["CAP draft → outbox/<br/>emberline/foresight/cap<br/>status: Exercise"]:::built
+        REAL["Real terrain / fuel / roads<br/>emberline/adapters (STUBS)"]:::planned
+    end
+    HUMAN["Human approval<br/>county / fire district<br/>(integration NOT BUILT)"]:::planned
+
+    HW -. "1 Hz CSV (planned contract)" .-> DET
+    VS --> DET
+    DET -- "P(fire), bearing" --> DES
+    RADIO -.-> DES
+    DES -- "Tier-1+ event" --> SUR
+    TWIN --> SUR
+    REAL -.-> TWIN
+    SUR --> ROUTE --> CAP --> HUMAN
+
+    classDef built fill:#e8f1e4,stroke:#2e5d34,color:#1b1b1b;
+    classDef planned fill:#fff4e5,stroke:#b8860b,stroke-dasharray: 5 5,color:#1b1b1b;

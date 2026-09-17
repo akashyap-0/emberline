@@ -7,7 +7,7 @@ metrics JSON under `metrics/`. This file is the source of truth for every
 in the code.
 
 Audit date: 2026-09-16. Branch: `emberline-build` (created from `main` at
-commit `dc94489`). Test suite: **54 tests, all passing** (`bash verify.sh`,
+commit `dc94489`). Test suite: **61 tests, all passing** (54 original + 7 added this round for the MVP entrypoint; `bash verify.sh`,
 see the run log in [MVP_RUN.md](MVP_RUN.md) once `make mvp` has been run).
 
 **State legend**
@@ -133,7 +133,7 @@ maps, real roads, or a real fire record. See [04_GAP_REGISTER.md](04_GAP_REGISTE
 
 **Not committed (gitignored, regenerable from seed):** `data/surrogate/` (160 shards, 53 MB), `data/detect/windows.npz` (5.4 MB), `demo/out/demo.gif` and frames. A fresh clone can run the demo and tests, but `surrogate.eval`, `surrogate.calibration` and `detect.eval` need `python -m emberline.surrogate.data` / `emberline.detect.data` first (deterministic; the surrogate set takes tens of minutes).
 
-## Test inventory (54)
+## Test inventory (61)
 
 | file | count | what it pins |
 |---|---|---|
@@ -146,7 +146,7 @@ maps, real roads, or a real fire record. See [04_GAP_REGISTER.md](04_GAP_REGISTE
 | `tests/test_foresight.py` | 7 | triangulation (2 and 1 bearings), cone monotone, routing avoids cone + replans, capacity spreads load, CAP validates, CAP validator rejects |
 | `tests/test_stress.py` | 6 | two fronts, two-fire conflation + post-cascade deafness, 7/12 node kill, in-town spread, degraded refusal, all-degraded never cascades |
 
-Plus `tests/test_mvp.py` (added this round) for the `emberline.mvp` entrypoint.
+| `tests/test_mvp.py` (this round) | 7 | summary built from the real `metrics/demo_last_run.json`; refusal when the file is missing, stale, or not from the canonical run; fresh metrics accepted; verify-output parsing; verify command resolves |
 
 ## What is NOT in this repository (for the avoidance of doubt)
 

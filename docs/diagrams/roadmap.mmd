@@ -1,0 +1,30 @@
+%% Emberline diagram: roadmap
+%% The identical block is inline in docs/05_ROADMAP.md; keep both in sync.
+%% Renders natively on GitHub, or at https://mermaid.live
+flowchart LR
+    subgraph NOW["NOW — one real node, real data"]
+        A1["Node #1 streams<br/>1 Hz CSV contract"]
+        A2["Safety protocol +<br/>supervised-burn slot"]
+        A3["Event-labelled sessions<br/>incl. real smoke"]
+        A4["Real-feature GBM +<br/>REPORT_REAL.md"]
+        A1 --> A2 --> A3 --> A4
+    end
+    subgraph NEXT["NEXT — a small mesh outdoors"]
+        B1["3–5 node LoRa field test"]
+        B2["Enclosure v1 + power soak"]
+        B3["Siren audibility test"]
+        B4["Pilot host + posture docs"]
+        B1 --> B2 --> B3 --> B4
+    end
+    subgraph LATER["LATER — real twin, real customer"]
+        C1["Adapters implemented<br/>USGS · LANDFIRE · OSM"]
+        C2["One real hindcast"]
+        C3["Foresight on the real twin"]
+        C4["Insurer / utility discovery<br/>+ real-BOM economics"]
+        C1 --> C2 --> C3
+        C4
+    end
+    SIM["This repo today:<br/>full simulation, 61 tests,<br/>REPORT.md numbers"]:::done
+    SIM --> NOW --> NEXT --> LATER
+
+    classDef done fill:#e8f1e4,stroke:#2e5d34,color:#111;

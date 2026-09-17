@@ -1,0 +1,39 @@
+%% Emberline diagram: architecture_modules
+%% The identical block is inline in docs/01_ARCHITECTURE.md; keep both in sync.
+%% Renders natively on GitHub, or at https://mermaid.live
+flowchart TB
+    CFG["config.yaml + seed<br/>emberline/config.py: rng_for()"]
+    WG["worldgen<br/>terrain · fuel · town · wind"]
+    FS["firesim<br/>Rothermel-style CA + Monte Carlo ensemble"]
+    SD["surrogate.data / datasets<br/>16,841 (t, t+10) pairs, split by world"]
+    ST["surrogate.train<br/>UNet 371,858 params"]
+    SE["surrogate.eval · calibration<br/>IoU · MAE · speedup · ECE"]
+    SN["sensors<br/>placement · plume · baselines · confounders"]
+    DD["detect.data<br/>60-s windows, split by event"]
+    DT["detect.train<br/>1D-CNN 9,129 params vs GBM"]
+    DE["detect.eval<br/>P/R/F1 · FP per node-day · latency"]
+    ME["mesh + mesh.escalation<br/>DES radio + Tier 0/1/2 ladder"]
+    FO["foresight<br/>triangulate · cones · routing · CAP"]
+    DM["demo<br/>scripted end-to-end run + scoreboard"]
+    HC["foresight.hindcast<br/>6 authored scenarios"]
+    PA["demo.pitch_assets<br/>6 PNGs from run artifacts"]
+    RP["report.py → metrics/*.json → REPORT.md"]
+
+    CFG --> WG --> FS
+    FS --> SD --> ST --> SE
+    WG --> SN
+    FS --> SN
+    SN --> DD --> DT --> DE
+    DT --> ME
+    SE --> FO
+    ME --> FO
+    FO --> DM
+    ME --> HC
+    DM --> PA
+    SE --> RP
+    DE --> RP
+    HC --> RP
+    DM --> RP
+
+    classDef m fill:#eef2f7,stroke:#1d3557,color:#111;
+    class CFG,WG,FS,SD,ST,SE,SN,DD,DT,DE,ME,FO,DM,HC,PA,RP m;

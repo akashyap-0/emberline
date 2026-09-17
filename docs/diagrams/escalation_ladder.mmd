@@ -1,0 +1,13 @@
+%% Emberline diagram: escalation_ladder
+%% The identical block is inline in docs/01_ARCHITECTURE.md; keep both in sync.
+%% Renders natively on GitHub, or at https://mermaid.live
+stateDiagram-v2
+    [*] --> Quiet
+    Quiet --> Tier0: one node P(fire) ≥ 0.60
+    Tier0 --> Tier1: 2 nodes, weighted score ≥ 1.20<br/>or one healthy node ≥ 0.85 twice, ≥ 20 s apart
+    Tier0 --> Tier2: ≥ 2 distinct nodes and score ≥ 1.60
+    Tier1 --> Tier2: ≥ 2 distinct nodes and score ≥ 1.60
+    Tier2 --> Tier2: post-cascade DETECTs suppressed at source
+    note right of Tier0: local chirp only
+    note right of Tier1: voice alert with bearing
+    note right of Tier2: full siren cascade,<br/>Foresight triggered

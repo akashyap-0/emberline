@@ -31,7 +31,7 @@ committed checkpoints alone.
 | Canonical demo: Tier-0 / Tier-1 / Tier-2 after ignition | 30 / 120 / 300 s | — | — | `python -m emberline.demo --scenario ridgeline --fast --kill-node N3 --wind-shift 40` |
 | Hindcast warning minutes gained (6 authored scenarios) | +19.5, +7.5, −6.5, three misses | — | mixed, documented | `python -m emberline.foresight.hindcast scenarios/*.yaml` |
 | Stress tests | 6/6 pass; 2 designed limitations pinned | — | — | `python -m pytest tests/test_stress.py -v` |
-| Test suite | 54 tests pass | — | — | `bash verify.sh` |
+| Test suite | 61 tests pass (54 original + 7 for the MVP entrypoint) | — | — | `bash verify.sh` |
 
 ## 1. Neural surrogate (Phase 3, retrained Phase 9)
 

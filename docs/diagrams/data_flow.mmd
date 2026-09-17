@@ -1,0 +1,47 @@
+%% Emberline diagram: data_flow
+%% The identical block is inline in docs/02_DATA_PIPELINE.md; keep both in sync.
+%% Renders natively on GitHub, or at https://mermaid.live
+flowchart LR
+    subgraph SYN["SYNTHETIC — built and measured (this repo)"]
+        direction TB
+        SEED["config.yaml seed 1337<br/>rng_for(stream, world_id)"]
+        WG["worldgen<br/>worlds 1–160 (train/val/holdout)<br/>world 0 (demo, hindcast)<br/>worlds 300–309, 320–324 (detect)<br/>worlds 161–172 (calibration)"]
+        FS["firesim (physics truth)"]
+        SH["data/surrogate/world_XXXX.npz<br/>160 shards · 16,841 (t, t+10) pairs"]
+        SPLIT1["split BY WORLD<br/>train · val (20 %) · held-out wind 80–130°"]
+        CK["data/checkpoints/best.pt (v2)<br/>best_v1.pt (archived)"]
+        M1["metrics/surrogate.json<br/>metrics/calibration.json"]
+        PL["sensors: plume + baselines<br/>+ 6 authored confounders + noise"]
+        WIN["data/detect/windows.npz<br/>(N, 4, 60) windows + event_id"]
+        SPLIT2["split BY EVENT<br/>25 % of events → val"]
+        DK["data/checkpoints/detect_cnn.pt<br/>detect_gbm.joblib"]
+        M2["metrics/detect.json"]
+        SC["scenarios/*.yaml<br/>6 hand-authored"]
+        HC["foresight.hindcast"]
+        M3["metrics/hindcast.json"]
+        DEMO["demo → metrics/demo_last_run.json<br/>demo/out/last_run_artifacts.*"]
+    end
+
+    subgraph REAL["REAL — PLANNED, NOT BUILT"]
+        direction TB
+        NODE["Physical node<br/>ESP32-S3 + BME680/688 + PMS5003<br/>1 Hz CSV: ms,pm1,pm25,pm10,gas_ohms,temp_c,rh,press_hpa"]:::planned
+        SESS["Event-labelled sessions<br/>ambient · bbq · wood_stove · vehicle<br/>fog · aerosol · supervised-burn smoke"]:::planned
+        RFEAT["Real-feature contract<br/>PM2.5 mean/max/slope · log(gas / 10-min baseline)<br/>RH mean · temp mean"]:::planned
+        RGBM["GBM retrained on real sessions<br/>(event-level split)"]:::planned
+        RREP["Separate real-data report<br/>never merged with synthetic tables"]:::planned
+        ADAPT["adapters: USGS 3DEP · LANDFIRE · OSM<br/>(stubs) → real twin"]:::planned
+        RHC["Real hindcasts on historical fires"]:::planned
+    end
+
+    SEED --> WG --> FS --> SH --> SPLIT1 --> CK --> M1
+    WG --> PL
+    FS --> PL --> WIN --> SPLIT2 --> DK --> M2
+    SC --> HC --> M3
+    DK --> HC
+    DK --> DEMO
+    CK --> DEMO
+    NODE -.-> SESS -.-> RFEAT -.-> RGBM -.-> RREP
+    ADAPT -.-> RHC
+    SC -. "same YAML format" .-> RHC
+
+    classDef planned fill:#fff4e5,stroke:#b8860b,stroke-dasharray: 5 5,color:#111;
