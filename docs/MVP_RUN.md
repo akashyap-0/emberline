@@ -1,6 +1,6 @@
 # Emberline MVP run summary
 
-Generated 2026-09-17T00:30:51+00:00 by `python -m emberline.mvp` (started 2026-09-17T00:28:46+00:00, 125 s wall).
+Generated 2026-09-17T00:38:02+00:00 by `python -m emberline.mvp` (started 2026-09-17T00:35:56+00:00, 126 s wall).
 
 > Every value on this page was read from an artifact this run produced or from `metrics/*.json`; none was typed in. **Everything is synthetic simulation** - see [03_RESULTS.md](03_RESULTS.md) and [04_GAP_REGISTER.md](04_GAP_REGISTER.md).
 
@@ -8,7 +8,7 @@ Generated 2026-09-17T00:30:51+00:00 by `python -m emberline.mvp` (started 2026-0
 
 | item | value |
 |---|---|
-| commit | `a5040b8` on `emberline-build` |
+| commit | `d7a2257` on `emberline-build` |
 | platform | Windows-11-10.0.26200-SP0 |
 | python | 3.13.14 |
 | torch | 2.6.0+cpu |
@@ -18,9 +18,9 @@ Generated 2026-09-17T00:30:51+00:00 by `python -m emberline.mvp` (started 2026-0
 
 | step | command | result | wall |
 |---|---|---|---|
-| verify | `C:\Users\advik\AppData\Local\Programs\Git\bin\bash.exe verify.sh` | OK | 72 s |
-| demo | `C:\Users\advik\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe -m emberline.demo --scenario ridgeline --fast --wind-shift 40 --kill-node N3` | OK | 47 s |
-| pitch assets | `C:\Users\advik\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe -m emberline.demo.pitch_assets` | OK | 5 s |
+| verify | `bash.exe verify.sh` | OK | 71 s |
+| demo | `python.exe -m emberline.demo --scenario ridgeline --fast --wind-shift 40 --kill-node N3` | OK | 49 s |
+| pitch assets | `python.exe -m emberline.demo.pitch_assets` | OK | 5 s |
 
 ## Test suite
 
@@ -39,7 +39,7 @@ Generated 2026-09-17T00:30:51+00:00 by `python -m emberline.mvp` (started 2026-0
 | node killed / at / self-heal announced at | N3 / t+390 s / t+570 s |
 | wind shift / at | +40° / t+870 s |
 | access points moved to another exit by the re-plan | 0 |
-| forecast wall-clock per ensemble | [15.88, 16.15] s |
+| forecast wall-clock per ensemble | [16.65, 16.47] s |
 | mesh channel utilisation | 0.21% |
 | mesh transmissions / collisions | 851 / 0 |
 | truth burned area at end | 145.0 ha |
@@ -92,7 +92,7 @@ Cross-check that REPORT.md still quotes these values: val IoU@+30 0.627 PASS, he
 | pitch asset `detection_confusion` | `demo/out/pitch_assets/detection_confusion.png` | yes |
 | pitch asset `calibration_before_after` | `demo/out/pitch_assets/calibration_before_after.png` | yes |
 | pitch asset `warning_timeline` | `demo/out/pitch_assets/warning_timeline.png` | yes |
-| CAP draft (newest in outbox/) | `outbox/cap_1_tier2_2026-09-17T003020+0000.json` | yes, status Exercise |
+| CAP draft (newest in outbox/) | `outbox/cap_1_tier2_2026-09-17T003730+0000.json` | yes, status Exercise |
 
 The CAP draft is a JSON document with `status: "Exercise"`; nothing transmits it. Frames, GIF and the outbox are gitignored; the six pitch PNGs are committed.
 

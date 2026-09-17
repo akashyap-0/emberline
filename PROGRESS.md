@@ -1,5 +1,69 @@
 # Emberline build log
 
+## 2026-09-16 — ROUND 3: MVP PACKAGE (documentation + one-command entrypoint) ✅
+
+Environment: team Windows 11 laptop (12 cores, Python 3.13, torch 2.6 CPU),
+Git Bash; `make` is not installed here, so `bash verify.sh` was used and the
+new entrypoint falls back to it automatically. Branch `emberline-build`
+recreated from `main` (`dc94489`, the consolidated Round-2 state). Started by
+running `verify.sh` on the untouched checkout: 54 tests green, demo smoke
+48 s, scoreboard identical to REPORT.md.
+
+Rules kept this round: **no model, training or simulation code changed**; no
+number invented (every figure in `docs/` was copied from REPORT.md, the
+metrics JSON, or a run performed here, and a script cross-checked every
+numeric token in `docs/` against those sources); everything physical or
+commercial is labelled PLANNED / NOT BUILT; one commit per phase, repo
+runnable at each.
+
+Phase 1 — `docs/AUDIT.md`: module-by-module inventory (path, purpose, key
+symbols, tests, REPORT metrics produced, state: measured /
+implemented-tested / implemented-untested / stub) plus the committed-artifact
+and test inventories. Findings worth recording: `adapters/` are three stubs;
+`foresight/economics.py` has no section in the current REPORT.md and its
+metrics file is not committed; the 12-node demo mesh is fully connected at
+the configured path-loss exponent (cascade max 1 hop), so multi-hop relaying
+is exercised only by tests with a dense-canopy exponent.
+
+Phase 2 — the document set in `docs/`: `00_OVERVIEW` (Lahaina thesis,
+escalation ladder, headline numbers, Mermaid system diagram),
+`01_ARCHITECTURE` (every module in execution order with equations quoted
+from docstrings and config keys; sequence diagram of one ignition from first
+sample to CAP draft), `02_DATA_PIPELINE` (surrogate pairs, detection windows,
+scenario files, and the PLANNED real-data contract: 1 Hz CSV
+`ms,pm1,pm25,pm10,gas_ohms,temp_c,rh,press_hpa`, real features, event-labelled
+sessions, separate real report), `03_RESULTS` (faithful REPORT.md summary
+with misses stated: IoU@+30 0.627 < 0.80, speedup 0.5× < 100×, CNN 0.943 <
+GBM 0.952), `04_GAP_REGISTER` (20 rows, Built-simulated / Partially built /
+NOT BUILT, and a 10-step minimum path to a field pilot), `05_ROADMAP`
+(now / next / later, each step with its proof artifact), `06_GLOSSARY`.
+README rewritten as the front door (it had been UTF-16 on disk; now UTF-8).
+
+Phase 3 — `make mvp` / `python -m emberline.mvp` (`emberline/mvp.py`): runs
+`make verify` (or `bash verify.sh`), the canonical demo
+(`--scenario ridgeline --fast --wind-shift 40 --kill-node N3`), the pitch
+assets, and writes `docs/MVP_RUN.md` from the artifacts the run produced;
+refuses to write if `metrics/demo_last_run.json` is missing, stale (older
+than the demo start), or not from the canonical run. 7 tests in
+`tests/test_mvp.py` (suite now 61). Measured here: whole command 125 s
+(verify 72 s, demo 47 s, pitch assets 5 s), well inside the 10-minute budget;
+61 passed; REPORT cross-checks all PASS.
+
+Phase 4 — `docs/diagrams/`: the six Mermaid blocks extracted verbatim to
+`.mmd` files (system, architecture_modules, escalation_ladder,
+ignition_sequence, data_flow, roadmap) and `render_diagrams.py` (matplotlib
+only; the repo has no Mermaid renderer) producing `system.png` and
+`data_flow.png` for slides.
+
+Phase 5 — consistency pass: numeric cross-check script over `docs/` (all
+tokens traced to REPORT/PROGRESS/config/metrics/code or labelled team
+context), link check (all relative links resolve), test-count references
+updated to 61, final `make mvp` green, this entry, push.
+
+Not done / out of scope (by instruction): no code behaviour changed, no
+hardware or real data, no web UI. Everything in `docs/04_GAP_REGISTER.md`
+remains open.
+
 ## 2026-09-01 ~06:45 UTC — ROUND 2 COMPLETE (Phases 9-14) ✅
 
 Environment: fresh cloud container (4 cores, Linux). Started by regenerating
