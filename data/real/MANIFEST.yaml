@@ -3,7 +3,8 @@ datasets:
     bytes: 5834376
     format: csv
     groups:
-    - interim_path: interim/kaggle_smoke/session_00.parquet
+    - duplicate_of: null
+      interim_path: interim/kaggle_smoke/session_00.parquet
       positives: 21816
       row_range:
       - 0
@@ -13,7 +14,8 @@ datasets:
       split: train
       utc_first: 1654733331
       utc_last: 1654758324
-    - interim_path: interim/kaggle_smoke/session_01.parquet
+    - duplicate_of: 0
+      interim_path: interim/kaggle_smoke/session_01.parquet
       positives: 21816
       row_range:
       - 24994
@@ -23,7 +25,8 @@ datasets:
       split: val
       utc_first: 1654761343
       utc_last: 1654786336
-    - interim_path: interim/kaggle_smoke/session_02.parquet
+    - duplicate_of: null
+      interim_path: interim/kaggle_smoke/session_02.parquet
       positives: 1121
       row_range:
       - 49988
@@ -33,7 +36,8 @@ datasets:
       split: test
       utc_first: 1654903005
       utc_last: 1654904158
-    - interim_path: interim/kaggle_smoke/session_03.parquet
+    - duplicate_of: null
+      interim_path: interim/kaggle_smoke/session_03.parquet
       positives: 2
       row_range:
       - 51142
@@ -43,7 +47,8 @@ datasets:
       split: train
       utc_first: 1654712187
       utc_last: 1654717930
-    - interim_path: interim/kaggle_smoke/session_04.parquet
+    - duplicate_of: 3
+      interim_path: interim/kaggle_smoke/session_04.parquet
       positives: 2
       row_range:
       - 56886

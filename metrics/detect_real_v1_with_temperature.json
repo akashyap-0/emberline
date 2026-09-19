@@ -1,0 +1,44 @@
+{
+  "majority_baseline_accuracy": 0.715,
+  "note": "Real data only: trained from scratch on kaggle_smoke train sessions; threshold from val session; test sessions 2 and 4 only. 71.5% positive prior is nothing like deployment - PR-AUC and FP/node-day are the informative numbers.",
+  "models": {
+    "gbm": {
+      "threshold": 0.11332828489086455,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "pr_auc": 0.0948,
+      "roc_auc": 0.0457,
+      "confusion": {
+        "tp": 0,
+        "fp": 4465,
+        "fn": 1095,
+        "tn": 1220
+      },
+      "fp_per_node_day_fire_free": 67918.31,
+      "fire_free_seconds": 5680,
+      "detection_latency_s": {
+        "2": null
+      }
+    },
+    "cnn": {
+      "threshold": 0.00018980064487550408,
+      "precision": 0.0024,
+      "recall": 0.0055,
+      "f1": 0.0033,
+      "pr_auc": 0.1183,
+      "roc_auc": 0.1433,
+      "confusion": {
+        "tp": 6,
+        "fp": 2492,
+        "fn": 1089,
+        "tn": 3193
+      },
+      "fp_per_node_day_fire_free": 37906.48,
+      "fire_free_seconds": 5680,
+      "detection_latency_s": {
+        "2": 277
+      }
+    }
+  }
+}

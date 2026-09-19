@@ -1,0 +1,88 @@
+{
+  "majority_baseline_accuracy": 0.715,
+  "note": "Real data only: trained from scratch on kaggle_smoke train sessions; threshold from val session; test sessions 2 and 4 only. 71.5% positive prior is nothing like deployment - PR-AUC and FP/node-day are the informative numbers.",
+  "models": {
+    "gbm": {
+      "threshold": 0.5271423339452129,
+      "per_session": {
+        "2": {
+          "windows": 1095,
+          "positives": 1095,
+          "tp": 108,
+          "fp": 0,
+          "fn": 987,
+          "tn": 0,
+          "fp_per_node_day_fire_free": 0.0,
+          "fire_free_seconds": 0
+        },
+        "4": {
+          "windows": 5685,
+          "positives": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 5685,
+          "fp_per_node_day_fire_free": 0.0,
+          "fire_free_seconds": 5680
+        }
+      },
+      "precision": 1.0,
+      "recall": 0.0986,
+      "f1": 0.1796,
+      "pr_auc": 0.4113,
+      "roc_auc": 0.6254,
+      "confusion": {
+        "tp": 108,
+        "fp": 0,
+        "fn": 987,
+        "tn": 5685
+      },
+      "fp_per_node_day_fire_free": 0.0,
+      "fire_free_seconds": 5680,
+      "detection_latency_s": {
+        "2": 10
+      }
+    },
+    "cnn": {
+      "threshold": 0.7025761604309082,
+      "per_session": {
+        "2": {
+          "windows": 1095,
+          "positives": 1095,
+          "tp": 0,
+          "fp": 0,
+          "fn": 1095,
+          "tn": 0,
+          "fp_per_node_day_fire_free": 0.0,
+          "fire_free_seconds": 0
+        },
+        "4": {
+          "windows": 5685,
+          "positives": 0,
+          "tp": 0,
+          "fp": 179,
+          "fn": 0,
+          "tn": 5506,
+          "fp_per_node_day_fire_free": 2722.82,
+          "fire_free_seconds": 5680
+        }
+      },
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "pr_auc": 0.1615,
+      "roc_auc": 0.4629,
+      "confusion": {
+        "tp": 0,
+        "fp": 179,
+        "fn": 1095,
+        "tn": 5506
+      },
+      "fp_per_node_day_fire_free": 2722.82,
+      "fire_free_seconds": 5680,
+      "detection_latency_s": {
+        "2": null
+      }
+    }
+  }
+}

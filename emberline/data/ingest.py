@@ -143,6 +143,24 @@ def ingest_smoke(csv_path: Path, interim_dir: Path, cache: dict) -> dict:
             f"expected exactly 5 smoke sessions (4 CNT resets), found {len(groups)}; "
             "the raw file changed — re-inventory before ingesting"
         )
+
+    # Duplicate-recording detection (measured 2026-09-18): the publisher
+    # duplicated two recordings with altered temperature traces — sessions 1
+    # and 4 are exact row-wise copies of sessions 0 and 3 in every channel
+    # INCLUDING the label, except Temperature[C]. Recorded here so the split's
+    # independence caveat is machine-readable: a session whose duplicate_of
+    # lands in another split is NOT independent evidence.
+    cmp_cols = [c for c in df.columns
+                if c not in ("row_index", "UTC", "CNT", "Temperature[C]")]
+    frames = [df.iloc[a:b].reset_index(drop=True) for (a, b) in derive_smoke_sessions(df)]
+    for i, gi in enumerate(groups):
+        gi["duplicate_of"] = None
+        for j in range(i):
+            if len(frames[i]) == len(frames[j]) and all(
+                frames[i][c].equals(frames[j][c]) for c in cmp_cols
+            ):
+                gi["duplicate_of"] = j
+                break
     st = csv_path.stat()
     return {
         "path": str(csv_path.relative_to(REAL_DATA_ROOT).as_posix()),

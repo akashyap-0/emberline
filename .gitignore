@@ -9,6 +9,9 @@ outbox/
 # them is ephemeral; regen commands are in PITCH_ASSETS.md).
 demo/out/*
 !demo/out/calibration_v2.png
+!demo/out/real/
+demo/out/real/*
+!demo/out/real/*.png
 !demo/out/pitch_assets/
 demo/out/pitch_assets/*
 !demo/out/pitch_assets/*.png
@@ -22,6 +25,9 @@ data/checkpoints/*
 !data/checkpoints/best_v1.pt
 !data/checkpoints/detect_cnn.pt
 !data/checkpoints/detect_gbm.joblib
+# Real-data detector checkpoints (Round 4; trained on real data only)
+!data/checkpoints/detect_real_gbm.pkl
+!data/checkpoints/detect_real_cnn.pt
 
 # --- Real-data workspace (roadmap step NOW; see data/real/README.md) --------
 # Bulk real data NEVER enters git: raw downloads, interim parquet and

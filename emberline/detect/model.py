@@ -34,10 +34,13 @@ class SmokeCNN(nn.Module):
     (vehicle/aerosol confounders) - together they cover both failure modes.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, in_channels: int = 4) -> None:
+        # in_channels=4 is the synthetic stack's contract; the real-data
+        # retraining (emberline/detect/train_real.py) instantiates the same
+        # architecture from scratch with the real channel count.
         super().__init__()
         self.net = nn.Sequential(
-            nn.Conv1d(4, 24, 5, padding=2), nn.SiLU(), nn.MaxPool1d(2),
+            nn.Conv1d(in_channels, 24, 5, padding=2), nn.SiLU(), nn.MaxPool1d(2),
             nn.Conv1d(24, 32, 5, padding=2), nn.SiLU(), nn.MaxPool1d(2),
             nn.Conv1d(32, 48, 3, padding=1), nn.SiLU(),
         )
