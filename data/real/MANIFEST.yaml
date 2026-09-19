@@ -1,0 +1,280 @@
+datasets:
+  kaggle_smoke:
+    bytes: 5834376
+    format: csv
+    groups:
+    - interim_path: interim/kaggle_smoke/session_00.parquet
+      positives: 21816
+      row_range:
+      - 0
+      - 24994
+      rows: 24994
+      session_id: 0
+      split: train
+      utc_first: 1654733331
+      utc_last: 1654758324
+    - interim_path: interim/kaggle_smoke/session_01.parquet
+      positives: 21816
+      row_range:
+      - 24994
+      - 49988
+      rows: 24994
+      session_id: 1
+      split: val
+      utc_first: 1654761343
+      utc_last: 1654786336
+    - interim_path: interim/kaggle_smoke/session_02.parquet
+      positives: 1121
+      row_range:
+      - 49988
+      - 51142
+      rows: 1154
+      session_id: 2
+      split: test
+      utc_first: 1654903005
+      utc_last: 1654904158
+    - interim_path: interim/kaggle_smoke/session_03.parquet
+      positives: 2
+      row_range:
+      - 51142
+      - 56886
+      rows: 5744
+      session_id: 3
+      split: train
+      utc_first: 1654712187
+      utc_last: 1654717930
+    - interim_path: interim/kaggle_smoke/session_04.parquet
+      positives: 2
+      row_range:
+      - 56886
+      - 62630
+      rows: 5744
+      session_id: 4
+      split: test
+      utc_first: 1655124308
+      utc_last: 1655130051
+    license_note: Kaggle card not yet captured into data/real/external/; internal training/evaluation
+      use only until the licence text is on file.
+    path: raw/kaggle_smoke/smoke_detection_iot.csv
+    sha256: 7bbf5deaab4c94746b344cee7bfec493f69b7d624ea63f35fabcd3c4a4e6eb7d
+    source_id: kaggle:deepcontractor/smoke-detection-dataset
+    split_policy: by session id (CNT resets); assigned once, recorded below
+  ndws:
+    shards:
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_eval_00.tfrecord
+      records: 1000
+      sha256: 85522369187adc7e0f76f7cb9e45ad55c47cc8351304ce726bee27de20c32d7b
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: val
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 187075501
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_eval_01.tfrecord
+      records: 877
+      sha256: a7b3b5b8915072cb3e1a5b4a82091f97202ca48d69db4546565620e5c52a9d8f
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: val
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_test_00.tfrecord
+      records: 1000
+      sha256: d2e156708b478206f55816447825c076479dc7ee1a7b940991ac2577f10f2bf0
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: test
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 146972657
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_test_01.tfrecord
+      records: 689
+      sha256: 4ae153931a3ca642e850871713e766c760c91ae1148749004e378da84a93603b
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: test
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_00.tfrecord
+      records: 1000
+      sha256: c67274eb55c44511188eceddf4915c579985025db3fb4e9558459167c11ebaa8
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_01.tfrecord
+      records: 1000
+      sha256: 3e75e5411d78ffe44a9cafd752e63f0a8adc7d09edca21b191ac2a14fe45cd73
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_02.tfrecord
+      records: 1000
+      sha256: 0e52dd94f56acd5ce75be9a5cf7e8ee874776e3906f8c5e610e475f291456f6b
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_03.tfrecord
+      records: 1000
+      sha256: b26bd4a23e76077a962bc952367d87ef632a762df5a5e40873d73adab24bdf72
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_04.tfrecord
+      records: 1000
+      sha256: 95919adcdcd51dba0fc311a17a93355c2056662040f4123c2fdaa15b31a1cb55
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_05.tfrecord
+      records: 1000
+      sha256: f20e63bfe62e0a4b5ae6533a62762676fc83ae2a657c52dfa6d4299e2613a9a0
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_06.tfrecord
+      records: 1000
+      sha256: fb35480aac3612978bc0134ff6fe6f60fe31d3b6425df307409ecf3bd2e35cf5
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_07.tfrecord
+      records: 1000
+      sha256: 545d06e898f0622bd9352f31857544a86ed15fc40446dd00d5ca1d78425383a5
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_08.tfrecord
+      records: 1000
+      sha256: f362386c22aeb4b043c520c995a64954874e6dfa8a8af10d67e1feeb9e3014dd
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_09.tfrecord
+      records: 1000
+      sha256: b041e7786b5e49a46fb5784ebc7cc8dcfc96b4f12b12924e1a5420a2647415cc
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_10.tfrecord
+      records: 1000
+      sha256: 8ae39ce20888f2f306cdd512dd3f278eba8a0a17a036c62ac2a83f23cc709eb1
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_11.tfrecord
+      records: 1000
+      sha256: c624d953a7f42ed70ee845e5fa073b0d1111b5b81863b7b480a1f34b0a1b9f71
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_12.tfrecord
+      records: 1000
+      sha256: 8f1891152c24d5fe57c76a48b93d5c232441273119e45a9ab2b19da061528dcd
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 213313000
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_13.tfrecord
+      records: 1000
+      sha256: d39a4bd03196df62c2462a53b0415392631da00f53076ccd90e24a9efeef76c9
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    - bytes: 208833427
+      format: tfrecord
+      license_note: "Commonly cited as CC BY 4.0; licence text not yet captured into data/real/external/\
+        \ \u2014 confirm before redistribution."
+      path: raw/ndws/next_day_wildfire_spread_train_14.tfrecord
+      records: 979
+      sha256: e8712ec961ca15295698be4daa60285ee6a80cccdc37165097a9636c7be50d5f
+      source_id: kaggle:fantineh/next-day-wildfire-spread (Huot et al. 2022, arXiv:2112.02447)
+      split: train
+      split_policy: dataset's own shipped shard split (15 train / 2 eval / 2 test); never reshuffled
+      tile: 64x64 (4096 floats/feature)
+    split_counts:
+      test: 2
+      train: 15
+      val: 2
+manifest_version: 1
+note: Written by python -m emberline.data.ingest. Identity is SHA-256, never size (16 of 19 NDWS shards
+  are byte-identical in size). Split assignments here are authoritative and assigned once.
+root: data/real

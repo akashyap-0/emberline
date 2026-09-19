@@ -18,6 +18,11 @@ dependencies = [
     "pyyaml",
     "pytest",
     "scikit-learn",
+    # Real-data pipeline (emberline/data/): CSV/parquet interim files.
+    # NDWS tfrecords are read by emberline/data/tfrecord_lite.py (pure
+    # Python), so TensorFlow is deliberately NOT a dependency.
+    "pandas",
+    "pyarrow",
 ]
 
 [tool.setuptools.packages.find]
