@@ -1,38 +1,32 @@
 # Preliminary real-data inventory
 
-Scan date: **2026-09-18**. Read-only survey: nothing was modified, moved,
-renamed or ingested. This is a first look, not a manifest — no checksums were
-computed and no file was parsed beyond what is noted below.
+First scan **2026-09-18**; revised **2026-09-19** after the datasets were
+moved into the repository and the team issued the authoritative constraints
+now recorded in [README.md](README.md). Read-only throughout: nothing was
+modified, renamed or ingested by this survey. This is a first look, not a
+manifest — no checksums were computed and no tfrecord was decoded.
 
 Method: `os.walk` over the raw tree; sizes from `stat()`; format sniffed from
 the first 64 bytes (magic-number table, UTF-8 decode attempt as fallback). The
 Kaggle CSV was read with the standard-library `csv` module to count rows and
 list columns. The tfrecords were **not** opened beyond their first bytes.
 
-## Where the data actually is
+## Where the data is (resolved 2026-09-19)
 
-> **The repository's own `data/real/raw/` is empty** (skeleton `.gitkeep`
-> only). The downloaded datasets live one directory **above** the repository:
+The first scan found both datasets *outside* the repository, one directory
+above it. They have since been **moved into the repo** at
+`emberline/data/real/raw/`, which was option 1 of the two the first scan
+offered. Repo-relative paths therefore now work:
 
-| | path |
+| dataset | path (relative to repo root) |
 |---|---|
-| repo raw dir (empty) | `conrad_challenge_fire_prototype/emberline/data/real/raw/` |
-| **actual data** | `conrad_challenge_fire_prototype/data/real/raw/` |
+| Kaggle smoke CSV | `data/real/raw/kaggle_smoke/` |
+| NDWS tfrecords | `data/real/raw/ndws/` |
 
-That outer path is a sibling of the git repository and is not covered by its
-`.gitignore`. The two sensible resolutions, both for the team to choose — no
-files were touched:
-
-1. **Move** the two dataset folders into `emberline/data/real/raw/`. The
-   ignore rules added in this commit already exclude the bulk (verified with
-   `git check-ignore`), so 3.7 GiB would stay out of git. This makes relative
-   paths in future loaders simple.
-2. **Leave them outside** the repo and point at them with an environment
-   variable or a config key (e.g. `EMBERLINE_REAL_DATA_DIR`). This keeps a
-   large download out of the project tree entirely and survives re-clones.
-
-Until one is chosen, any code that assumes `data/real/raw/<dataset>` relative
-to the repo root will find nothing.
+Re-verified with the real files present: 3.7 GiB on disk,
+`git status` clean of it, `git add -A` stages none of it,
+`git check-ignore -v` attributes both dataset trees to the
+`data/real/raw/**` rule. The bulk is safely out of git.
 
 ## Summary
 
@@ -95,27 +89,58 @@ text** (comma-delimited, single header row).
 | 14 | `CNT` | **present, confirmed** — monotonic sample counter. To be dropped later. |
 | 15 | `Fire Alarm` | label: 44,757 positive (`1`) / 17,873 negative (`0`) — 71.5 % positive |
 
-**Identification of the drop columns is confirmed:** exact-match (case- and
-whitespace-insensitive) lookups found `CNT` at index 14 and `UTC` at index 1.
-Both are still in the file; this commit drops nothing.
+### Three leak columns, and how badly they leak (measured 2026-09-19)
 
-Why they are drop candidates, for the record: `CNT` is a row counter that
-rises monotonically through each recording session, and `UTC` is wall-clock
-time, so either lets a model separate the alarm sessions from the ambient
-sessions without looking at a sensor value at all. The unnamed index column at
-position 0 has the same defect.
+All three are confirmed present, and **all three must be dropped**; a feature
+builder should assert their absence rather than trust a comment.
 
-Two further observations worth carrying forward, neither acted on here:
+| # | column | what it is | leak strength, measured |
+|---|---|---|---|
+| 0 | *(empty name)* | exactly `0..62629`, the exporter's row index (verified) | a single threshold on it alone scores **76.4 %** accuracy |
+| 14 | `CNT` | sample counter, 0–24,993, resetting **4 times** (so ~5 recording sessions) | a single threshold alone scores **90.0 %** accuracy; no negative row has `CNT > 5,743`, so that one cut labels 38,500 rows — 86 % of all positives — perfectly |
+| 1 | `UTC` | epoch seconds, span 116.1 h, **not** monotonic across the file | separates sessions by wall-clock time |
 
-- The label balance (71.5 % positive) is nothing like a real deployment, where
-  positives are vanishingly rare. Any accuracy figure from this file is
-  meaningless without re-balancing or a per-session split.
-- The channel set does **not** match the planned Emberline node. This file has
-  `TVOC[ppb]` and `eCO2[ppm]` (Bosch/vendor-derived indices) where the node's
-  contract specifies raw `gas_ohms`; it has no equivalent of the rolling-
-  baseline gas log-ratio in
-  [docs/02_DATA_PIPELINE.md](../../docs/02_DATA_PIPELINE.md) §d.2. Treat it as
-  a pretraining or sanity dataset, not as node data.
+For scale: the majority-class baseline is 71.5 %, and the synthetic detector
+reported in [REPORT.md](../../REPORT.md) reaches F1 0.952. A model left with
+`CNT` can reach 90 % accuracy while reading no sensor value at all, so any
+result computed before these columns are dropped is meaningless.
+
+The `CNT` resets are useful, though: they mark the session boundaries, which
+is what a session-level split needs, since the contract in
+[docs/02_DATA_PIPELINE.md](../../docs/02_DATA_PIPELINE.md) §d.3 splits by
+session, never by window. Derive the split from `CNT` resets, then drop `CNT`.
+
+### The gas channel is a vendor index, and it runs backwards
+
+The node contract specifies raw `gas_ohms`. This file has `TVOC[ppb]` and
+`eCO2[ppm]`, which are Bosch/vendor-derived indices. Per the authoritative
+constraints the log-ratio-to-rolling-baseline feature is computed on `TVOC`
+here, and two measured facts must be handled when it is:
+
+- **4.3 % of TVOC samples are exactly zero** (2,698 of 62,630; min 0, median
+  981, max 60,000). `log(0)` is undefined and a rolling baseline can itself be
+  zero, so the feature needs an epsilon and a defined behaviour when the
+  baseline is degenerate. Zeros are not confined to one class (2,038 negative,
+  660 positive), so they cannot simply be dropped.
+- **The direction is inverted relative to the node's physics.** Raw gas
+  resistance *falls* in smoke, so on a node `log(gas / baseline)` goes
+  negative during an event. In this dataset TVOC is *higher* when there is no
+  alarm: mean **4,596.6 ppb for `Fire Alarm = 0`** against **882.0 ppb for
+  `Fire Alarm = 1`**. Whatever this label marks, it is not "VOC went up". A
+  feature ported from the node formula without checking sign will point the
+  wrong way, and a model trained here will learn a relationship that does not
+  transfer.
+
+This is the domain gap in concrete terms, and it is the argument for our own
+logged sessions: this dataset can pretrain or sanity-check a pipeline, but it
+cannot stand in for node data.
+
+### Reporting rule for anything derived from this file
+
+Label balance is 71.5 % positive (44,757 / 17,873), nothing like deployment,
+where positives are vanishingly rare. Report **PR-AUC and false positives per
+node-day**; accuracy is uninformative at this prior, and the prior mismatch
+must be stated next to any number quoted from this dataset.
 
 ## Dataset 2 — NDWS (Next Day Wildfire Spread) tfrecords
 
@@ -135,11 +160,18 @@ protobuf payload). Contents were **not** decoded: reading them needs
 TensorFlow, which is not a dependency of this repository, and the task was
 survey-only.
 
-Note for later: 16 of the 19 shards are exactly 213,313,000 bytes — that is
-the shard size, not a coincidence. The three that differ
-(`train_14`, `eval_01`, `test_01`) are the last shard of each split. A real
-manifest should record SHA-256 per file, since equal sizes make size-only
-comparison useless.
+**Manifests must use SHA-256, never size.** 16 of the 19 shards are exactly
+213,313,000 bytes — that is the shard size, not a coincidence; the three that
+differ (`train_14`, `eval_01`, `test_01`) are the last shard of each split.
+Size comparison therefore cannot detect a swapped, truncated or re-downloaded
+file, so `MANIFEST.yaml` identifies every file by SHA-256.
+
+**Decoding needs TensorFlow, which this repository does not depend on.**
+Either add `tensorflow-cpu` and record it as a Phase-3 dependency in
+`pyproject.toml`, or use a lightweight TFRecord parser if one proves reliable
+on these files. Either way the choice is recorded, not made silently: adding a
+heavyweight dependency changes what a fresh clone must install to run
+`bash verify.sh`.
 
 ## Not done here
 

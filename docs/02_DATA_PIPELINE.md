@@ -132,6 +132,17 @@ Nothing in this section exists in code. It is the contract the team has
 agreed for the physical prototype so the software side can be prepared. Any
 future PR implementing it must keep real results in a separate report.
 
+**Update 2026-09-19:** two *public* datasets have landed on disk under
+`data/real/raw/` (a Kaggle smoke-sensor CSV and the NDWS tfrecords) and the
+workspace contract for them is [data/real/README.md](../data/real/README.md),
+with a survey in
+[data/real/INVENTORY_PRELIM.md](../data/real/INVENTORY_PRELIM.md). Still no
+code reads them, and neither is node data: the Kaggle file carries vendor
+indices (`TVOC[ppb]`, `eCO2[ppm]`) rather than the raw `gas_ohms` of §d.1, and
+its gas channel runs opposite to the direction node physics implies. The
+sessions described in §d.3 remain the thing that has to be recorded; these
+datasets do not substitute for them.
+
 ### d.1 Node output contract (PLANNED)
 
 Hardware under construction (not in this repo): ESP32-S3-DevKitC-1 with a

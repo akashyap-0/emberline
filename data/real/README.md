@@ -72,11 +72,47 @@ Large data is deliberately **not** stored in this repository and not in git
 LFS. A teammate reproduces a result by re-downloading from `SOURCE.md` and
 checking `MANIFEST.yaml`, not by cloning gigabytes.
 
-## Current location caveat (2026-09-18)
+## Authoritative constraints
 
-The Kaggle smoke CSV and the NDWS tfrecords that have been downloaded are
-**not** in this directory. They sit one level up, outside the git repository,
-at `conrad_challenge_fire_prototype/data/real/raw/`. That path is a sibling of
-the repo, not part of it. Nothing has been moved — see
-[INVENTORY_PRELIM.md](INVENTORY_PRELIM.md) for the exact paths and the two
-options for resolving it.
+Team decisions of 2026-09-19. These bind any ingestion, feature or reporting
+work that touches this directory; they are not suggestions.
+
+1. **`make` is unavailable on the team machine.** Use `bash verify.sh`
+   wherever a prompt or doc says `make verify`. (`make mvp` →
+   `python -m emberline.mvp`, which already falls back to bash.)
+2. **The Kaggle CSV has three leak columns, not two.** Drop the unnamed
+   index column at position 0 as well as `CNT` and `UTC`. Any feature
+   builder must assert that none of the three survives into the feature
+   matrix — a test, not a comment.
+3. **The gas channel is a vendor index, not raw resistance.** The
+   log-ratio-to-rolling-baseline feature is computed on `TVOC[ppb]` for this
+   dataset. The node contract specifies raw `gas_ohms`. This domain gap must
+   be stated explicitly in the report; it is the reason our own logged
+   sessions are required rather than optional. Two consequences measured in
+   [INVENTORY_PRELIM.md](INVENTORY_PRELIM.md) and carried into any
+   implementation: the log-ratio needs an epsilon because 4.3 % of TVOC
+   samples are exactly zero, and TVOC in this dataset runs **opposite** to
+   the direction the node's physics implies.
+4. **Report PR-AUC and false positives per node-day, not accuracy.** The
+   Kaggle label balance is 71.5 % positive, nothing like deployment, where
+   positives are vanishingly rare. State the prior mismatch in the report
+   next to any number derived from this dataset.
+5. **Manifests identify files by SHA-256, never by size.** Sixteen of the
+   nineteen NDWS shards are byte-identical in size, so size comparison
+   cannot detect a swapped or truncated file.
+6. **Decoding NDWS requires TensorFlow**, which is not a dependency of this
+   repository. Either add `tensorflow-cpu` and record it as a Phase-3
+   dependency in `pyproject.toml`, or use a lightweight TFRecord parser if
+   one proves reliable. Do not add a heavy dependency silently.
+
+## Location and ignore rules (verified 2026-09-19)
+
+The datasets now live inside the repository at `data/real/raw/kaggle_smoke/`
+and `data/real/raw/ndws/` (they were previously a level above it, outside
+git). The ignore rules were re-checked **with the real files present**:
+3.7 GiB sits on disk, `git status` reports none of it, and `git add -A`
+stages none of it. Confirm any new path before assuming:
+
+```bash
+git check-ignore -v data/real/raw/<something>
+```
