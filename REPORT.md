@@ -1,13 +1,18 @@
 # Emberline — Measured Results
 
-All numbers below were produced by code in this repository running on
-**synthetic, procedurally generated worlds**. Nothing here is a claim about
-real-fire detection or real-world performance. Regenerate any section with
-the command noted inside it.
+All numbers below were produced by code in this repository. Sections other
+than [Real-data results](#real-data-results-trained-on-real-data-only) ran on
+**synthetic, procedurally generated worlds** and claim nothing about
+real-fire detection or real-world performance. The real-data section used
+two public real datasets — which are also not our field deployment; it says
+exactly that. Real and synthetic numbers are never merged into one table.
+Regenerate any section with the command noted inside it.
 
 <!-- BEGIN intro -->
 ## Contents
 
+* [Real-data results](#real-data-results-trained-on-real-data-only)
+  (Round 4) — smoke detection + NDWS fire spread, trained on real data only
 * [System diagram](#system-diagram) — and a presentation-quality version in
   `demo/out/pitch_assets/system_architecture.png` (all six pitch assets are
   captioned in `PITCH_ASSETS.md`)
@@ -24,6 +29,149 @@ the command noted inside it.
 * [Stress testing](#stress-testing-phase-13) (Phase 13) — measured failure
   modes, documented not hidden
 
+<!-- BEGIN real-data -->
+## Real-data results (trained on real data only)
+
+**Models in this section were trained on real data only, with no synthetic
+pretraining.** Every byte reaches training through `emberline/data/` loaders,
+which raise on any path under `data/synthetic/` or elsewhere in the synthetic
+stack's data tree (`emberline.data.assert_real_data_path`;
+`tests/test_real_data_infra.py` proves the guard fires). Both models started
+from scratch: no transfer learning, no fine-tuning, no synthetic-trained
+checkpoint was loaded or evaluated. These are public real datasets, **not our
+field deployment** — nothing here claims real-world detection capability for
+our nodes; that claim waits for our own logged sessions and the supervised
+burn.
+
+Round 4, 2026-09-18. Regenerate: `python -m emberline.data.ingest`,
+`python -m emberline.data.ndws`, `python -m emberline.detect.train_real`,
+`python -m emberline.detect.eval_real`, `python -m emberline.spread.train_real`,
+`python -m emberline.spread.eval_real`.
+
+### Datasets, licences, splits
+
+| dataset | contents | licence note | split policy |
+|---|---|---|---|
+| Kaggle smoke (`deepcontractor/smoke-detection-dataset`) | 62,630 rows @ 1 Hz, 12 sensor channels, `Fire Alarm` label, **71.5% positive** — nothing like deployment priors | not yet captured into `data/real/external/`; internal use only until confirmed | by **session id** (5 sessions from `CNT`'s exactly-4 reset points): 0,3 → train; 1 → val; 2,4 → test. Assigned once in `data/real/MANIFEST.yaml`, never by row |
+| NDWS (`fantineh/next-day-wildfire-spread`, Huot et al. 2022) | 18,545 tiles of 64×64 km @ 1 km; 11 covariates + `PrevFireMask` → next-day `FireMask` | commonly cited CC BY 4.0; text not yet captured — confirm before redistribution | the dataset's own shipped **15 train / 2 eval / 2 test** shard split, respected as-is, never reshuffled |
+
+### Leak guards applied (smoke dataset)
+
+Three measured leak columns were dropped from all features: the unnamed row
+index (76.4% accuracy alone vs the 71.5% majority baseline), `UTC`, and
+`CNT` (90.0% alone; no negative row has CNT > 5,743). `CNT`'s resets were
+used first to derive the 5 ground-truth sessions, then the column was
+dropped. A test asserts no retained feature has |spearman| ≥ 0.5 vs
+within-session row order (bookkeeping leaks measure ~1.0; the worst
+surviving physical feature measures 0.42).
+
+Two further channels were excluded with measured cause:
+
+* **`Temperature[C]` is fabricated.** Sessions 1 and 4 are exact row-wise
+  copies of sessions 0 and 3 in *every* other channel including the label,
+  while temperature differs by large non-constant offsets (to −81.6 °C) —
+  the publisher duplicated two recordings with altered temperature traces.
+  Its class direction is also incoherent (AUC 0.03 on train sessions vs
+  0.99 on val, measured before any test evaluation). Recorded per session as
+  `duplicate_of` in the manifest. Consequence: **the val session duplicates
+  a train session, and test session 4 duplicates train session 3** — the
+  only genuinely held-out recording is test session 2, and val metrics are
+  memorization checks, not generalization evidence.
+* **`Pressure[hPa]` failed the row-order leak test** (|spearman| 0.937 on
+  train): barometric level is a slow weather drift acting as a session
+  clock. Raw H2 / Raw Ethanol absolute levels drift the same way (0.92) and
+  entered only as slope + causal log-ratio.
+
+### Smoke detection (test sessions 2 + 4 only; 6,780 windows, 16.2% positive)
+
+Both models below; the majority-class baseline is printed beside every
+score. Accuracy is deliberately not the headline: at a 71.5% positive prior,
+"always fire" scores 71.5% while being useless.
+
+| metric | GBM (primary) | 1D-CNN (comparison) | majority baseline |
+|---|---|---|---|
+| precision @ val threshold | **1.000** | 0.000 | 0.715 ("always fire") |
+| recall @ val threshold | 0.099 | 0.000 | 1.000 ("always fire") |
+| F1 @ val threshold | 0.180 | 0.000 | 0.834 ("always fire") |
+| PR-AUC | 0.411 | 0.162 | 0.162 (test prevalence) |
+| ROC-AUC | 0.625 | 0.463 | 0.500 (chance) |
+| FP / node-day (fire-free spans, 5,680 s) | **0.0** | 2,722.8 | — |
+| detection latency, session 2 | **10 s** | never fires | — |
+| confusion (tp/fp/fn/tn) | 108 / 0 / 987 / 5,685 | 0 / 179 / 1,095 / 5,506 | — |
+
+Reading: the GBM catches the held-out fire session's onset in 10 s with zero
+false positives on the fire-free day, then loses it — its scores fall back
+below threshold as PM2.5 saturates ~1,700× beyond anything a train fire
+showed (train fires peak at PM2.5 ≈ 1.8 µg/m³; session 2's fire runs
+~3,060). The CNN, trained on the same real windows from scratch, does not
+transfer at all. The deeper cause is the dataset itself: its three distinct
+recordings carry **mutually contradictory label semantics** — high PM is
+"fire" in session 2 but "not fire" throughout session 3/4 (PM2.5 ≈ 700 with
+label 0), so a session-honest split leaves any model trained on sessions
+0+3 pointing the wrong way at session 2's regime. With the fabricated
+temperature channel still included (v1, the full specified feature set),
+both models were *anti*-correlated on test — GBM ROC-AUC 0.046, 67,918
+FP/node-day (preserved in `metrics/detect_real_v1_with_temperature.json`);
+removing the fabricated/leaking channels (v2) is what produced the table
+above. Threshold: Youden's J on val only (F1-max degenerates to
+"alert always" at val's 87.5% prior).
+
+Artifacts: `data/checkpoints/detect_real_gbm.pkl`,
+`data/checkpoints/detect_real_cnn.pt`, `metrics/detect_real.json`, plots in
+`demo/out/real/`.
+
+### Fire spread on NDWS (test shards only; 6.73M labeled pixels, 1.25% burned)
+
+Persistence (next-day fire = today's fire) is the floor; the UNet (1.93M
+params, ≤5M cap, trained from scratch, early-stopped on the eval shards at
+epoch 6 of 11, ~80 min CPU within the 2 h budget) must beat it to matter.
+Pixels with `FireMask = −1` (uncertain, per the dataset spec) are excluded
+from loss and every metric; class imbalance handled with pos_weight = 90
+BCE. Binary threshold chosen by max IoU on the eval shards.
+
+| metric (burned cells @ +1 day) | persistence baseline | SpreadUNet |
+|---|---|---|
+| IoU | 0.183 | **0.246** |
+| precision | 0.357 | 0.307 |
+| recall | 0.273 | **0.555** |
+| PR-AUC | — (binary) | 0.344 (prevalence 0.013) |
+
+The UNet beats persistence on IoU (+34% relative) and doubles its recall at
+somewhat lower precision. **Regime note:** this is 1 km / daily
+satellite-scale spread — a different regime from the 10 m / minute-scale
+node simulator elsewhere in this repo. These numbers are the real-data
+reference point for spread modelling, not a claim about the 10 m system.
+
+Artifacts: `data/checkpoints/spread_real_unet.pt` (inference weights),
+`metrics/spread_real.json`, `demo/out/real/spread_real_tiles.png`.
+
+### Domain gaps (candid)
+
+* **Vendor gas indices vs `gas_ohms`.** The smoke dataset's gas channels
+  are vendor-derived indices, and TVOC's polarity is *inverted* vs our node
+  physics: mean 4,596.6 ppb when `Fire Alarm = 0` vs 882.0 when `= 1` —
+  higher *without* alarm, where raw gas resistance on our node falls in
+  smoke. The log-ratio feature therefore lets the model learn the sign;
+  nothing hard-codes direction. 4.3% of TVOC samples are exactly 0
+  (2,698 rows straddling both classes): kept, with ε = 1.0 in the log and a
+  defined first-window/zero-baseline rule (feature = 0 with no history).
+  These vendor channels are **not** a drop-in proxy for our `gas_ohms` —
+  which is precisely why our own logged sessions are the next step.
+* **Priors.** 71.5% positive is nothing like deployment, where positives
+  are vanishingly rare; that is why PR-AUC and FP/node-day are reported
+  beside every score and accuracy is not.
+* **Scale.** 1 km / daily NDWS vs the 10 m / minute node system: the UNet
+  result transfers methodology (masked loss, persistence floor, honest
+  shipped splits), not numbers.
+* **What our own data adds.** Logged ESP32 sessions (schema already
+  enforced: `ms,pm1,pm25,pm10,gas_ohms,temp_c,rh,press_hpa`) give raw gas
+  resistance with correct polarity, consistent label semantics, realistic
+  priors, and as many genuinely independent sessions as we choose to
+  record — fixing all three failure causes measured above. A supervised
+  burn then provides the one thing no public set here has: ground-truth
+  fire at node scale.
+
+<!-- END real-data -->
 ## System diagram
 
 ```

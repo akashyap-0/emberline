@@ -25,9 +25,10 @@ data/checkpoints/*
 !data/checkpoints/best_v1.pt
 !data/checkpoints/detect_cnn.pt
 !data/checkpoints/detect_gbm.joblib
-# Real-data detector checkpoints (Round 4; trained on real data only)
+# Real-data checkpoints (Round 4; trained on real data only)
 !data/checkpoints/detect_real_gbm.pkl
 !data/checkpoints/detect_real_cnn.pt
+!data/checkpoints/spread_real_unet.pt
 
 # --- Real-data workspace (roadmap step NOW; see data/real/README.md) --------
 # Bulk real data NEVER enters git: raw downloads, interim parquet and

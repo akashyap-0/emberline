@@ -1,5 +1,86 @@
 # Emberline build log
 
+## 2026-09-18 — ROUND 4: REAL DATA ONLY (detection + spread on real datasets) ✅
+
+Environment: same team Windows 11 laptop, CPU only, `bash verify.sh` (no
+make). Branch `main`. The one rule of the round: **every model trained
+tonight uses exclusively real data** — no synthetic samples in any split, no
+synthetic-pretrained checkpoint, no evaluation of synthetic-trained models.
+Enforced in code: all new training/eval loads through `emberline/data/`,
+whose loaders raise on any path under `data/synthetic/` (or elsewhere in the
+synthetic stack's data tree); tests prove the guard fires. The synthetic
+stack is untouched and its tests stay green at every commit.
+
+Phase 0 — cleanup + safety: deleted the two junk files from a terminal
+redirect accident (never tracked, one was a `less` help page); committed the
+verify-refresh of `metrics/demo_last_run.json`; `bash verify.sh` green;
+pushed the prep commits. `data/real/INVENTORY.md` (supersedes the prelim):
+all 20 raw files with size, format, SHA-256 — identity by digest, never size
+(16 of 19 NDWS shards are byte-identical in size). Licences honestly marked
+"not yet captured into external/" rather than asserted from memory.
+
+Phase 1 — `emberline/data/`: `schemas.py` (Kaggle CSV as it truly is,
+unnamed index column included; NDWS tf.train.Example feature spec; the
+future ESP32 logger contract `ms,pm1,pm25,pm10,gas_ohms,temp_c,rh,press_hpa`
+— schema only, validators reject unknown/missing columns, never coerce);
+`tfrecord_lite.py` — a pure-Python TFRecord + Example parser that reads all
+19 shards (18,545 records), so **tensorflow was NOT added** (constraint 6
+resolved the light way, with round-trip tests); `ingest.py` CLI — validates,
+writes one parquet per smoke session to `interim/`, and writes
+`MANIFEST.yaml` (path, sha256, bytes, source, licence note, split of every
+training group; idempotent, hash cache keyed by size+mtime). Split policy in
+the manifest, assigned once: smoke by session id (CNT's exactly-4 resets →
+5 sessions: 0,3 train / 1 val / 2,4 test), NDWS by its shipped 15/2/2 shard
+split. 15 tests (guard, schema rejection, determinism, split stability).
+Dependencies added and recorded: pandas, pyarrow.
+
+Phase 2 — smoke detection on real data, and two data-quality discoveries
+that shaped everything:
+(a) **the Temperature channel is fabricated** — sessions 1 and 4 are exact
+row-wise copies of sessions 0 and 3 in every other channel *including the
+label*, with temperature altered by non-constant offsets to −81.6 °C; so
+val duplicates train, test session 4 duplicates train session 3, and only
+test session 2 is genuinely held out (recorded as `duplicate_of` in the
+manifest);
+(b) **ambient levels are session clocks** — pressure mean hit |spearman|
+0.937 vs row order on train, H2/ethanol levels 0.92; the mandated leak test
+(ceiling 0.5, every feature) forced them out, leaving dynamics (slopes,
+causal log-ratios) and particulate levels. The three known leak columns
+(row index / UTC / CNT) were dropped after deriving sessions from CNT.
+Models from scratch: GBM (primary; hyperparameters chosen on val — column
+subsampling is what stops session-ambient memorization) and the SmokeCNN
+architecture re-instantiated at the real channel count. Thresholds via
+Youden's J on val only (F1-max degenerates at val's 87.5% prior). Test
+(sessions 2+4): GBM precision 1.000 / recall 0.099 / PR-AUC 0.411 /
+ROC-AUC 0.625, **0.0 FP/node-day** on 5,680 fire-free s, **10 s detection
+latency** on the held-out fire; CNN does not transfer (0 recall,
+2,723 FP/day). v1 with the fabricated temperature channel included was
+*anti*-predictive on test (GBM ROC-AUC 0.046) — preserved in
+`metrics/detect_real_v1_with_temperature.json` beside the v2 numbers; the
+dataset's three distinct recordings carry mutually contradictory label
+semantics (high PM = fire in session 2, = not-fire in sessions 3/4), which
+is the measured argument for our own logged sessions. 6 more tests.
+
+Phase 3 — NDWS spread: shards → per-shard resumable float16 `.npy` tiles in
+`interim/` (wind-direction garbage values, observed to −465,922°, clipped to
+[0, 360] at conversion — documented); `SpreadUNet` 1,931,009 params (cap
+5M, asserted in a test), masked weighted BCE (FireMask −1 excluded,
+pos_weight 90), early stop on the eval shards (epoch 6 of 11, ~80 min CPU,
+inside the 2 h cap, checkpoint-resume exercised for real after the
+background task was killed). Test shards, 6.73M labeled pixels:
+**UNet IoU 0.246 vs persistence 0.183** (+34% relative), recall 0.555 vs
+0.273, PR-AUC 0.344 at 1.25% prevalence. Explicitly a 1 km/daily
+satellite-regime reference point, not a claim about the 10 m system.
+6 more tests.
+
+Phase 4 — REPORT.md gained the top-level "Real-data results (trained on
+real data only)" section (detection + spread tables, each with dataset,
+licence note, split policy, leak guards, majority/persistence baselines
+beside every model score, and the candid domain-gaps paragraph; real and
+synthetic numbers never share a table); `data/real/README.md` now carries
+the 4-step add-a-new-dataset recipe; suite 88 tests, `bash verify.sh` green
+including all synthetic tests.
+
 ## 2026-09-16 — ROUND 3: MVP PACKAGE (documentation + one-command entrypoint) ✅
 
 Environment: team Windows 11 laptop (12 cores, Python 3.13, torch 2.6 CPU),
