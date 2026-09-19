@@ -1,12 +1,12 @@
 {
-  "_generated_utc": "2026-09-17T00:37:56+00:00",
+  "_generated_utc": "2026-09-19T01:14:04+00:00",
   "backend": "surrogate",
   "cascade_max_hops": 1,
   "cascade_median_latency_s": 0.4,
   "channel_utilization": 0.0021,
   "forecast_wall_s": [
-    16.65,
-    16.47
+    19.09,
+    20.56
   ],
   "ignition_estimate_error_m": 248,
   "ignition_sim_min": 8,
