@@ -9,10 +9,14 @@ two must never be mixed: real results are reported separately
 and [docs/04_GAP_REGISTER.md](../../docs/04_GAP_REGISTER.md) for what is still
 missing.
 
-**Nothing in this directory is ingested by any code yet.** As of this commit
-it is a skeleton plus an inventory; no loader, no feature extractor, no
-training path reads from here. See
-[INVENTORY_PRELIM.md](INVENTORY_PRELIM.md) for what is on disk today.
+This directory is ingested exclusively through `emberline/data/`
+(`python -m emberline.data.ingest`, `python -m emberline.data.ndws`), whose
+loaders refuse any path under a `data/synthetic` directory or elsewhere in
+the synthetic stack's `data/` tree (`emberline.data.assert_real_data_path`;
+tests prove the guard fires). [INVENTORY.md](INVENTORY.md) is the
+authoritative content listing with SHA-256 digests;
+[MANIFEST.yaml](MANIFEST.yaml) is its machine-readable form plus the split
+assignment of every training group.
 
 ## The directory contract
 
@@ -49,24 +53,32 @@ the provenance survive a fresh clone:
 The rules are at the bottom of [.gitignore](../../.gitignore). Verify a path
 before assuming: `git check-ignore -v data/real/raw/<something>`.
 
-## Where to drop a new dataset
+## Adding a new dataset — the 4-step recipe
 
-1. Create **one directory per dataset** under `raw/`, named in
-   `lower_snake_case` after the source, e.g. `raw/kaggle_smoke/`,
-   `raw/ndws/`. Do not nest datasets or mix two sources in one folder.
-2. Put the files in **exactly as downloaded**. Keep the archive too if it is
-   small; do not repack.
-3. Write `raw/<dataset>/SOURCE.md` before you do anything else with it:
-   - the URL and the exact dataset version/date you downloaded,
-   - who downloaded it, when (UTC), and with what tool,
-   - the licence and what it permits (redistribution? commercial use?),
-   - the citation, if the source asks for one,
-   - one paragraph: what the data actually is, and what Emberline wants it for.
-4. Write `raw/<dataset>/MANIFEST.yaml`: for each file, its size in bytes and
-   its SHA-256, plus the row/record count if cheap to obtain. This is how a
-   later run proves the bytes did not change.
-5. Save the dataset card, licence and any paper into `external/`.
-6. Re-run the inventory and update `INVENTORY.md`.
+The pipeline is built so a better dataset later (our own ESP32 logger
+sessions, the supervised burn) drops in without redesign:
+
+1. **Drop the files** in one new directory per dataset under `raw/`,
+   `lower_snake_case`, exactly as downloaded — no repacking, no cleaning.
+   Save the dataset card / licence / paper into `external/` at the same
+   time, and write `raw/<dataset>/SOURCE.md` (URL, exact version, who/when,
+   licence, one paragraph on what it is and why Emberline wants it).
+2. **Declare the schema** in `emberline/data/schemas.py`: the exact columns
+   or feature spec as they truly are (leak columns and all — dropping is a
+   downstream modelling decision). The validator must reject unknown and
+   missing columns, never coerce. The ESP32 logger contract
+   (`ms,pm1,pm25,pm10,gas_ohms,temp_c,rh,press_hpa`) is already declared and
+   waiting for its first data.
+3. **Teach `emberline/data/ingest.py` the dataset**: validate against the
+   schema, normalize to parquet/npy in `interim/` (one file per recording
+   session or shard), and record it in `MANIFEST.yaml` — path, SHA-256,
+   bytes, source id, licence note, and the SPLIT assignment of every
+   training group, assigned once and deterministically (by session/shard,
+   never randomly by row). Re-running must be idempotent.
+4. **Add the tests and re-inventory**: schema rejection, manifest
+   determinism, split stability (mirror `tests/test_real_data_infra.py`),
+   then refresh `INVENTORY.md` (size + SHA-256 per file; identity is the
+   digest, never the size) and run `bash verify.sh`.
 
 Large data is deliberately **not** stored in this repository and not in git
 LFS. A teammate reproduces a result by re-downloading from `SOURCE.md` and
@@ -104,6 +116,9 @@ work that touches this directory; they are not suggestions.
    repository. Either add `tensorflow-cpu` and record it as a Phase-3
    dependency in `pyproject.toml`, or use a lightweight TFRecord parser if
    one proves reliable. Do not add a heavy dependency silently.
+   *Resolved 2026-09-18:* `emberline/data/tfrecord_lite.py`, a pure-Python
+   TFRecord + `tf.train.Example` reader, parses all 19 shards (18,545
+   records) and is covered by round-trip tests; TensorFlow was NOT added.
 
 ## Location and ignore rules (verified 2026-09-19)
 

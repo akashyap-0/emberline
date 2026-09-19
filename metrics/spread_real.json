@@ -1,0 +1,25 @@
+{
+  "note": "Real data only; UNet trained from scratch on NDWS train shards, threshold from eval shards, metrics on test shards. 1 km/daily satellite regime \u2014 not the 10 m node-scale system.",
+  "test_labeled_pixels": 6727699,
+  "burned_prevalence": 0.01253,
+  "persistence": {
+    "iou": 0.183,
+    "precision": 0.3572,
+    "recall": 0.2728,
+    "tp": 23003,
+    "fp": 41396,
+    "fn": 61328
+  },
+  "unet": {
+    "iou": 0.2463,
+    "precision": 0.3069,
+    "recall": 0.555,
+    "tp": 46806,
+    "fp": 105713,
+    "fn": 37525,
+    "pr_auc": 0.3442,
+    "threshold": 0.95
+  },
+  "unet_params": 1931009,
+  "best_eval_pr_auc": 0.2921
+}
