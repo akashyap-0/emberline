@@ -22,3 +22,24 @@ data/checkpoints/*
 !data/checkpoints/best_v1.pt
 !data/checkpoints/detect_cnn.pt
 !data/checkpoints/detect_gbm.joblib
+
+# --- Real-data workspace (roadmap step NOW; see data/real/README.md) --------
+# Bulk real data NEVER enters git: raw downloads, interim parquet and
+# model-ready processed sets stay local. The directory skeleton and the small
+# provenance files (.gitkeep, MANIFEST.yaml, INVENTORY.md, SOURCE.md) DO get
+# tracked, so the contract survives a fresh clone.
+# `data/*` above already excluded data/real, and git does not descend into an
+# excluded directory, so data/real is re-included first; the `**/` negations
+# re-include DIRECTORIES only, which is what lets the per-file negations below
+# match inside nested dataset folders.
+!data/real/
+data/real/raw/**
+data/real/interim/**
+data/real/processed/**
+!data/real/raw/**/
+!data/real/interim/**/
+!data/real/processed/**/
+!data/real/**/.gitkeep
+!data/real/**/MANIFEST.yaml
+!data/real/**/INVENTORY.md
+!data/real/**/SOURCE.md
